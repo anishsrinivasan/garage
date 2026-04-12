@@ -1,0 +1,22 @@
+{
+  "name": "@preowned-cars/scraper",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "lint": "tsc --noEmit",
+    "scrape": "bun run src/index.ts",
+    "scrape:instagram": "bun run src/index.ts --source instagram"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@preowned-cars/db": "workspace:*",
+    "@preowned-cars/shared": "workspace:*",
+    "drizzle-orm": "^0.39.0",
+    "playwright": "^1.50.0",
+    "postgres": "^3.4.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}

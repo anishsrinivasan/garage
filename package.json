@@ -1,0 +1,19 @@
+{
+  "name": "preowned-cars",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "lint": "turbo lint",
+    "scrape": "bun run --cwd apps/scraper src/index.ts",
+    "scrape:instagram": "bun run --cwd apps/scraper src/index.ts --source instagram"
+  },
+  "devDependencies": {
+    "turbo": "^2.4.0",
+    "typescript": "^5.7.0"
+  }
+}

@@ -1,0 +1,58 @@
+import {
+  pgTable,
+  uuid,
+  text,
+  integer,
+  numeric,
+  boolean,
+  timestamp,
+  jsonb,
+  uniqueIndex,
+  index,
+} from "drizzle-orm/pg-core";
+
+export const carListings = pgTable(
+  "car_listings",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    make: text("make").notNull(),
+    model: text("model").notNull(),
+    variant: text("variant"),
+    year: integer("year").notNull(),
+    price: numeric("price", { precision: 12, scale: 2 }).notNull(),
+    kmDriven: integer("km_driven"),
+    fuelType: text("fuel_type"),
+    transmission: text("transmission"),
+    ownerCount: integer("owner_count"),
+    color: text("color"),
+    bodyType: text("body_type"),
+    location: text("location"),
+    city: text("city").notNull(),
+    sourcePlatform: text("source_platform").notNull(),
+    sourceUrl: text("source_url").notNull(),
+    sourceListingId: text("source_listing_id"),
+    sellerName: text("seller_name"),
+    sellerPhone: text("seller_phone"),
+    sellerType: text("seller_type"),
+    photos: jsonb("photos").$type<string[]>().default([]),
+    description: text("description"),
+    listedAt: timestamp("listed_at"),
+    scrapedAt: timestamp("scraped_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    isActive: boolean("is_active").notNull().default(true),
+    contentHash: text("content_hash"),
+    dedupClusterId: uuid("dedup_cluster_id"),
+  },
+  (table) => ({
+    uniqueSourceUrl: uniqueIndex("uq_source_url").on(
+      table.sourcePlatform,
+      table.sourceUrl
+    ),
+    idxCity: index("idx_city").on(table.city),
+    idxMakeModel: index("idx_make_model").on(table.make, table.model),
+    idxPrice: index("idx_price").on(table.price),
+    idxYear: index("idx_year").on(table.year),
+    idxScrapedAt: index("idx_scraped_at").on(table.scrapedAt),
+    idxIsActive: index("idx_is_active").on(table.isActive),
+  })
+);
