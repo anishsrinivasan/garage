@@ -7,12 +7,14 @@
     "lint": "tsc --noEmit",
     "scrape": "bun run src/index.ts",
     "scrape:instagram": "bun run src/index.ts --source instagram",
-    "scrape:cars24": "bun run src/index.ts --source cars24"
+    "scrape:cars24": "bun run src/index.ts --source cars24",
+    "scrape:cardekho": "bun run src/index.ts --source cardekho"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "@preowned-cars/db": "workspace:*",
     "@preowned-cars/shared": "workspace:*",
+    "cheerio": "^1.0.0",
     "drizzle-orm": "^0.39.0",
     "playwright": "^1.50.0",
     "postgres": "^3.4.0"
