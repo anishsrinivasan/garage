@@ -6,7 +6,8 @@
     "build": "tsc",
     "lint": "tsc --noEmit",
     "scrape": "bun run src/index.ts",
-    "scrape:instagram": "bun run src/index.ts --source instagram"
+    "scrape:instagram": "bun run src/index.ts --source instagram",
+    "scrape:cars24": "bun run src/index.ts --source cars24"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",

@@ -1,4 +1,5 @@
 import { createInstagramAdapter } from "./adapters/instagram";
+import { createCars24Adapter } from "./adapters/cars24";
 import { runAdapter } from "./runner";
 
 const SOURCE_FLAG = "--source";
@@ -12,6 +13,10 @@ async function main() {
 
   if (source === "instagram" || source === "all") {
     adapters.push(createInstagramAdapter());
+  }
+
+  if (source === "cars24" || source === "all") {
+    adapters.push(createCars24Adapter());
   }
 
   if (adapters.length === 0) {
