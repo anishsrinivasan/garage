@@ -79,13 +79,26 @@ function parseListingsFromHtml(html: string): RawCardekhoListing[] {
   jsonLdScripts.each((_, el) => {
     try {
       const data = JSON.parse($(el).text());
-      const items = Array.isArray(data) ? data : data?.itemListElement ?? [data];
-      for (const item of items) {
+      const graphs = data?.["@graph"] ?? (Array.isArray(data) ? data : [data]);
+      const allItems: any[] = [];
+      for (const node of graphs) {
+        if (node?.itemListElement) {
+          allItems.push(...node.itemListElement);
+        } else if (node?.["@type"] === "Car" || node?.["@type"] === "Product") {
+          allItems.push(node);
+        }
+      }
+      if (allItems.length === 0 && data?.itemListElement) {
+        allItems.push(...data.itemListElement);
+      }
+      for (const item of allItems) {
         const product = item?.item ?? item;
         if (product?.["@type"] !== "Car" && product?.["@type"] !== "Product") continue;
 
+        const brandName = product.brand?.name ?? "";
         const name = product.name ?? "";
-        const { make, model, variant, year: parsedYear } = parseMakeModel(name);
+        const { make: nameMake, model, variant, year: parsedYear } = parseMakeModel(name);
+        const make = brandName || nameMake;
         if (!make || !model) continue;
 
         const year =
@@ -119,7 +132,7 @@ function parseListingsFromHtml(html: string): RawCardekhoListing[] {
           kmDriven: product.mileageFromOdometer?.value
             ? (parseKm(String(product.mileageFromOdometer.value)) ?? undefined)
             : undefined,
-          fuelType: product.fuelType ?? undefined,
+          fuelType: product.fuelType ?? product.vehicleEngine?.fuelType ?? undefined,
           transmission: product.vehicleTransmission ?? undefined,
           sourceUrl: resolveUrl(url),
           photos,
