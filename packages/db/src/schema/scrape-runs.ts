@@ -4,6 +4,7 @@ import {
   text,
   integer,
   timestamp,
+  jsonb,
 } from "drizzle-orm/pg-core";
 
 export const scrapeRuns = pgTable("scrape_runs", {
@@ -15,5 +16,8 @@ export const scrapeRuns = pgTable("scrape_runs", {
   listingsFound: integer("listings_found").default(0),
   listingsNew: integer("listings_new").default(0),
   listingsUpdated: integer("listings_updated").default(0),
+  listingsRejected: integer("listings_rejected").default(0),
+  rejectionReasons: text("rejection_reasons"),
   errorMessage: text("error_message"),
+  metadata: jsonb("metadata"),
 });

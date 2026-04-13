@@ -3,6 +3,7 @@ import { db } from "@preowned-cars/db";
 import { carListings, scrapeRuns } from "@preowned-cars/db";
 import type { ScraperAdapter, NormalizedListing } from "@preowned-cars/shared";
 import { createHash } from "crypto";
+import { validateListing } from "./utils/validation";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 5000;
@@ -93,25 +94,57 @@ export async function runAdapter(adapter: ScraperAdapter): Promise<void> {
         `[runner] ${adapter.name}: found ${result.listings.length} listings, ${result.errors.length} errors`
       );
 
-      const { newCount, updatedCount } = await upsertListings(result.listings);
+      const validListings: NormalizedListing[] = [];
+      const rejectionReasons: string[] = [];
+
+      for (const listing of result.listings) {
+        const validation = validateListing(listing);
+        if (validation.valid) {
+          if (validation.sanitizedPhotos) {
+            listing.photos = validation.sanitizedPhotos;
+          }
+          validListings.push(listing);
+        } else {
+          const reason = `${listing.sourceUrl}: ${validation.errors.join(", ")}`;
+          rejectionReasons.push(reason);
+          console.warn(`[runner] ${adapter.name}: rejected listing — ${reason}`);
+        }
+      }
+
+      const rejectedCount = result.listings.length - validListings.length;
+      if (rejectedCount > 0) {
+        console.log(
+          `[runner] ${adapter.name}: ${rejectedCount} listing(s) rejected by validation`
+        );
+      }
+
+      const { newCount, updatedCount } = await upsertListings(validListings);
+
+      const hasErrors = result.errors.length > 0 || rejectedCount > 0;
+      const errorParts: string[] = [];
+      if (result.errors.length > 0) {
+        errorParts.push(result.errors.map((e) => `${e.url}: ${e.message}`).join("\n"));
+      }
+      if (rejectionReasons.length > 0) {
+        errorParts.push(`Validation rejections:\n${rejectionReasons.join("\n")}`);
+      }
 
       await db
         .update(scrapeRuns)
         .set({
-          status: result.errors.length > 0 ? "completed_with_errors" : "completed",
+          status: hasErrors ? "completed_with_errors" : "completed",
           completedAt: new Date(),
           listingsFound: result.metadata.totalFound,
           listingsNew: newCount,
           listingsUpdated: updatedCount,
-          errorMessage:
-            result.errors.length > 0
-              ? result.errors.map((e) => `${e.url}: ${e.message}`).join("\n")
-              : null,
+          listingsRejected: rejectedCount,
+          rejectionReasons: rejectionReasons.length > 0 ? rejectionReasons.join("\n") : null,
+          errorMessage: errorParts.length > 0 ? errorParts.join("\n\n") : null,
         })
         .where(eq(scrapeRuns.id, run!.id));
 
       console.log(
-        `[runner] ${adapter.name}: done. ${newCount} new, ${updatedCount} updated (${result.metadata.durationMs}ms)`
+        `[runner] ${adapter.name}: done. ${newCount} new, ${updatedCount} updated, ${rejectedCount} rejected (${result.metadata.durationMs}ms)`
       );
       return;
     } catch (err) {
