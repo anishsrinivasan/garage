@@ -13,10 +13,10 @@
     "scrape:instagram": "bun run apps/scraper/src/index.ts --source instagram",
     "scrape:cars24": "bun run apps/scraper/src/index.ts --source cars24",
     "scrape:cardekho": "bun run apps/scraper/src/index.ts --source cardekho",
-    "db:push": "bun run --cwd packages/db push",
-    "db:generate": "bun run --cwd packages/db generate",
-    "db:migrate": "bun run --cwd packages/db migrate",
-    "db:studio": "bun run --cwd packages/db studio"
+    "db:push": "bun --env-file=.env x drizzle-kit push --config packages/db/drizzle.config.ts",
+    "db:generate": "bun --env-file=.env x drizzle-kit generate --config packages/db/drizzle.config.ts",
+    "db:migrate": "bun --env-file=.env x drizzle-kit migrate --config packages/db/drizzle.config.ts",
+    "db:studio": "bun --env-file=.env x drizzle-kit studio --config packages/db/drizzle.config.ts"
   },
   "devDependencies": {
     "turbo": "^2.4.0",
