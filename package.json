@@ -9,8 +9,10 @@
     "build": "turbo build",
     "dev": "turbo dev",
     "lint": "turbo lint",
-    "scrape": "bun run --cwd apps/scraper src/index.ts",
-    "scrape:instagram": "bun run --cwd apps/scraper src/index.ts --source instagram"
+    "scrape": "bun run apps/scraper/src/index.ts",
+    "scrape:instagram": "bun run apps/scraper/src/index.ts --source instagram",
+    "scrape:cars24": "bun run apps/scraper/src/index.ts --source cars24",
+    "scrape:cardekho": "bun run apps/scraper/src/index.ts --source cardekho"
   },
   "devDependencies": {
     "turbo": "^2.4.0",
