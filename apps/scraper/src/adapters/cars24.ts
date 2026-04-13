@@ -1,3 +1,4 @@
+import * as cheerio from "cheerio";
 import type {
   ScraperAdapter,
   ScraperConfig,
@@ -7,174 +8,150 @@ import type {
 } from "@preowned-cars/shared";
 import { CARS24_CONFIG } from "./cars24-config";
 
-type Cars24Listing = {
-  appointmentId?: string;
-  carId?: string;
-  make: string;
-  model: string;
-  variant?: string;
-  year: number;
-  price: number;
-  fixedPrice?: number;
-  emi?: number;
-  km?: number;
-  fuel?: string;
-  fuelType?: string;
-  transmission?: string;
-  ownerNo?: number;
-  ownerNumber?: number;
-  color?: string;
-  bodyType?: string;
-  city?: string;
-  location?: string;
-  area?: string;
-  imageUrl?: string;
-  mainImage?: string;
-  images?: string[];
-  imagePaths?: string[];
-  relativeUrl?: string;
-  carUrl?: string;
-  sellerType?: string;
-  registrationNumber?: string;
-  listedDate?: string;
-  createdDate?: string;
+type Cars24ListingUrl = {
+  name: string;
+  url: string;
+  image?: string;
 };
 
-type Cars24ApiResponse = {
-  data?: {
-    results?: Cars24Listing[];
-    content?: Cars24Listing[];
-    totalCount?: number;
-    total?: number;
-    totalPages?: number;
-    page?: number;
+type Cars24CarJsonLd = {
+  "@type"?: string;
+  name?: string;
+  brand?: { "@type"?: string; name?: string };
+  model?: string;
+  vehicleModelDate?: number | string;
+  bodyType?: string;
+  fuelType?: string;
+  vehicleTransmission?: string;
+  color?: string;
+  numberOfForwardGears?: number;
+  offers?: {
+    "@type"?: string;
+    priceCurrency?: string;
+    price?: number | string;
+    url?: string;
   };
-  results?: Cars24Listing[];
-  content?: Cars24Listing[];
-  total?: number;
-  totalCount?: number;
+  mileageFromOdometer?: {
+    "@type"?: string;
+    value?: number | string;
+    unitCode?: string;
+  };
+  image?: string | string[];
 };
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function resolveImageUrl(path: string | undefined | null): string {
-  if (!path) return "";
-  if (path.startsWith("http")) return path;
-  return `https://fastly-production.24c.in/${path}`;
-}
-
-function buildListingUrl(listing: Cars24Listing): string {
-  if (listing.relativeUrl) {
-    return `${CARS24_CONFIG.baseUrl}${listing.relativeUrl.startsWith("/") ? "" : "/"}${listing.relativeUrl}`;
-  }
-  if (listing.carUrl) {
-    return listing.carUrl.startsWith("http")
-      ? listing.carUrl
-      : `${CARS24_CONFIG.baseUrl}${listing.carUrl}`;
-  }
-  const id = listing.appointmentId ?? listing.carId ?? "";
-  return `${CARS24_CONFIG.baseUrl}/buy-used-${listing.make}-${listing.model}-cars-${CARS24_CONFIG.citySlug}-${id}/`;
-}
-
-function normalizePhotos(listing: Cars24Listing): string[] {
-  if (listing.images && listing.images.length > 0) {
-    return listing.images.map(resolveImageUrl).filter(Boolean);
-  }
-  if (listing.imagePaths && listing.imagePaths.length > 0) {
-    return listing.imagePaths.map(resolveImageUrl).filter(Boolean);
-  }
-  const mainImg = resolveImageUrl(listing.imageUrl ?? listing.mainImage);
-  return mainImg ? [mainImg] : [];
-}
-
-function normalizeListing(raw: Cars24Listing): NormalizedListing | null {
-  if (!raw.make || !raw.model || !raw.year || !raw.price) {
-    return null;
-  }
-
-  const sourceUrl = buildListingUrl(raw);
-
-  return {
-    make: raw.make.trim(),
-    model: raw.model.trim(),
-    variant: raw.variant?.trim() || undefined,
-    year: raw.year,
-    price: raw.fixedPrice ?? raw.price,
-    kmDriven: raw.km ?? undefined,
-    fuelType: raw.fuelType ?? raw.fuel ?? undefined,
-    transmission: raw.transmission ?? undefined,
-    ownerCount: raw.ownerNumber ?? raw.ownerNo ?? undefined,
-    color: raw.color ?? undefined,
-    bodyType: raw.bodyType ?? undefined,
-    location: raw.area ?? raw.location ?? undefined,
-    city: raw.city ?? CARS24_CONFIG.city,
-    sourcePlatform: "cars24",
-    sourceUrl,
-    sourceListingId: raw.appointmentId ?? raw.carId ?? undefined,
-    sellerType: raw.sellerType ?? "dealer",
-    photos: normalizePhotos(raw),
-    listedAt: raw.listedDate
-      ? new Date(raw.listedDate)
-      : raw.createdDate
-        ? new Date(raw.createdDate)
-        : undefined,
-  };
-}
-
-function extractListings(body: Cars24ApiResponse): {
-  listings: Cars24Listing[];
-  total: number;
-} {
-  const data = body.data ?? body;
-  const listings =
-    (data as Cars24ApiResponse["data"])?.results ??
-    (data as Cars24ApiResponse["data"])?.content ??
-    body.results ??
-    body.content ??
-    [];
-  const total =
-    (data as Cars24ApiResponse["data"])?.totalCount ??
-    (data as Cars24ApiResponse["data"])?.total ??
-    body.totalCount ??
-    body.total ??
-    0;
-  return { listings, total };
-}
-
-async function fetchPage(
-  page: number
-): Promise<{ listings: Cars24Listing[]; total: number }> {
-  const params = new URLSearchParams({
-    sort: "bestmatch",
-    serveWarrantyCount: "true",
-    storeCityId: CARS24_CONFIG.cityId,
-    pinId: CARS24_CONFIG.citySlug,
-    city: CARS24_CONFIG.citySlug,
-    page: String(page),
-    size: String(CARS24_CONFIG.pageSize),
-  });
-
-  const url = `${CARS24_CONFIG.apiBaseUrl}/v1/listing?${params}`;
-
-  const response = await fetch(url, {
+function fetchWithHeaders(url: string): Promise<Response> {
+  return fetch(url, {
     headers: {
-      Accept: "application/json",
+      Accept:
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+      "Accept-Language": "en-IN,en;q=0.9",
       "User-Agent":
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
       Referer: `${CARS24_CONFIG.baseUrl}/buy-used-cars-${CARS24_CONFIG.citySlug}/`,
-      Origin: CARS24_CONFIG.baseUrl,
     },
     signal: AbortSignal.timeout(CARS24_CONFIG.requestTimeoutMs),
   });
+}
 
-  if (!response.ok) {
-    throw new Error(`Cars24 API returned ${response.status}: ${response.statusText}`);
-  }
+function extractListingUrlsFromHtml(html: string): Cars24ListingUrl[] {
+  const $ = cheerio.load(html);
+  const urls: Cars24ListingUrl[] = [];
 
-  const body = (await response.json()) as Cars24ApiResponse;
-  return extractListings(body);
+  $('script[type="application/ld+json"]').each((_, el) => {
+    try {
+      const data = JSON.parse($(el).text());
+      const graph: any[] = data?.["@graph"] ?? [];
+      for (const item of graph) {
+        if (item?.["@type"] === "ListItem" && item.url) {
+          urls.push({
+            name: item.name ?? "",
+            url: item.url,
+            image: item.image,
+          });
+        }
+      }
+    } catch {
+      // malformed JSON-LD
+    }
+  });
+
+  return urls;
+}
+
+function parseCarFromJsonLd(
+  html: string,
+  pageUrl: string
+): NormalizedListing | null {
+  const $ = cheerio.load(html);
+  let car: Cars24CarJsonLd | null = null;
+
+  $('script[type="application/ld+json"]').each((_, el) => {
+    try {
+      const data = JSON.parse($(el).text());
+      const items = Array.isArray(data) ? data : [data];
+      for (const item of items) {
+        if (item?.["@type"] === "Car") {
+          car = item;
+          return false;
+        }
+      }
+    } catch {
+      // malformed JSON-LD
+    }
+  });
+
+  if (!car) return null;
+  const c = car as Cars24CarJsonLd;
+
+  const make = c.brand?.name ?? "";
+  const model = c.model ?? "";
+  const year =
+    typeof c.vehicleModelDate === "string"
+      ? parseInt(c.vehicleModelDate, 10)
+      : (c.vehicleModelDate ?? 0);
+  const price =
+    typeof c.offers?.price === "string"
+      ? parseFloat(c.offers.price)
+      : (c.offers?.price ?? 0);
+
+  if (!make || !model || !year || !price) return null;
+
+  const kmValue = c.mileageFromOdometer?.value;
+  const kmDriven =
+    typeof kmValue === "string"
+      ? parseInt(kmValue, 10)
+      : (kmValue ?? undefined);
+
+  const images = Array.isArray(c.image) ? c.image : c.image ? [c.image] : [];
+
+  const nameParts = (c.name ?? "").replace(`${year}`, "").trim();
+  const variant =
+    nameParts.replace(make, "").replace(model, "").trim() || undefined;
+
+  const idMatch = pageUrl.match(/-(\d{8,})\/?$/);
+
+  return {
+    make: make.trim(),
+    model: model.trim(),
+    variant,
+    year,
+    price,
+    kmDriven: kmDriven && !isNaN(kmDriven) ? kmDriven : undefined,
+    fuelType: c.fuelType ?? undefined,
+    transmission: c.vehicleTransmission ?? undefined,
+    color: c.color ?? undefined,
+    bodyType: c.bodyType ?? undefined,
+    city: CARS24_CONFIG.city,
+    sourcePlatform: "cars24",
+    sourceUrl: pageUrl,
+    sourceListingId: idMatch?.[1],
+    sellerType: "dealer",
+    photos: images,
+  };
 }
 
 export function createCars24Adapter(): ScraperAdapter {
@@ -194,53 +171,70 @@ export function createCars24Adapter(): ScraperAdapter {
       const startTime = Date.now();
       const allListings: NormalizedListing[] = [];
       const errors: ScrapeError[] = [];
-      let totalFound = 0;
-      let pagesScraped = 0;
+      const seenUrls = new Set<string>();
 
       const delayMs = 60000 / CARS24_CONFIG.rateLimit.requestsPerMinute;
 
-      for (let page = 1; page <= CARS24_CONFIG.maxPages; page++) {
+      console.log("[cars24] Fetching listing index page...");
+      const indexUrl = `${CARS24_CONFIG.baseUrl}/buy-used-cars-${CARS24_CONFIG.citySlug}/`;
+
+      let listingUrls: Cars24ListingUrl[] = [];
+      try {
+        const response = await fetchWithHeaders(indexUrl);
+        if (!response.ok) {
+          throw new Error(`Cars24 returned ${response.status}: ${response.statusText}`);
+        }
+        const html = await response.text();
+        listingUrls = extractListingUrlsFromHtml(html);
+        console.log(`[cars24] Found ${listingUrls.length} listing URLs from index page`);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[cars24] Failed to fetch index: ${message}`);
+        errors.push({ url: indexUrl, message, retryable: true });
+        return {
+          listings: [],
+          errors,
+          metadata: { pagesScraped: 0, totalFound: 0, durationMs: Date.now() - startTime },
+        };
+      }
+
+      for (let i = 0; i < listingUrls.length; i++) {
+        const item = listingUrls[i]!;
+        if (seenUrls.has(item.url)) continue;
+        seenUrls.add(item.url);
+
         try {
-          console.log(`[cars24] Fetching page ${page}...`);
-          const { listings: rawListings, total } = await fetchPage(page);
+          console.log(`[cars24] Fetching detail ${i + 1}/${listingUrls.length}: ${item.name}`);
+          const response = await fetchWithHeaders(item.url);
+          if (!response.ok) {
+            throw new Error(`Cars24 returned ${response.status}`);
+          }
+          const html = await response.text();
+          const listing = parseCarFromJsonLd(html, item.url);
 
-          if (page === 1) {
-            totalFound = total;
-            console.log(`[cars24] Total listings available: ${total}`);
+          if (listing) {
+            allListings.push(listing);
+            console.log(
+              `[cars24] Parsed: ${listing.make} ${listing.model} ${listing.year} - ₹${listing.price}`
+            );
+          } else {
+            console.log(`[cars24] Could not parse listing from ${item.url}`);
           }
 
-          if (rawListings.length === 0) {
-            console.log(`[cars24] No more listings on page ${page}, stopping.`);
-            break;
-          }
-
-          pagesScraped++;
-
-          for (const raw of rawListings) {
-            const normalized = normalizeListing(raw);
-            if (normalized) {
-              allListings.push(normalized);
-            }
-          }
-
-          console.log(
-            `[cars24] Page ${page}: ${rawListings.length} raw, ${allListings.length} total normalized`
-          );
-
-          if (page < CARS24_CONFIG.maxPages && rawListings.length > 0) {
+          if (i < listingUrls.length - 1) {
             await delay(delayMs);
           }
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
-          console.error(`[cars24] Page ${page} failed: ${message}`);
+          console.error(`[cars24] Detail page failed: ${message}`);
           errors.push({
-            url: `${CARS24_CONFIG.apiBaseUrl}/v1/listing?page=${page}`,
+            url: item.url,
             message,
             retryable: !message.includes("403") && !message.includes("401"),
           });
 
           if (message.includes("403") || message.includes("429")) {
-            console.error("[cars24] Rate-limited or blocked, stopping pagination.");
+            console.error("[cars24] Rate-limited or blocked, stopping.");
             break;
           }
         }
@@ -250,8 +244,8 @@ export function createCars24Adapter(): ScraperAdapter {
         listings: allListings,
         errors,
         metadata: {
-          pagesScraped,
-          totalFound,
+          pagesScraped: 1,
+          totalFound: listingUrls.length,
           durationMs: Date.now() - startTime,
         },
       };
@@ -259,8 +253,11 @@ export function createCars24Adapter(): ScraperAdapter {
 
     async healthCheck(): Promise<boolean> {
       try {
-        const { listings } = await fetchPage(1);
-        return listings.length > 0;
+        const url = `${CARS24_CONFIG.baseUrl}/buy-used-cars-${CARS24_CONFIG.citySlug}/`;
+        const response = await fetchWithHeaders(url);
+        if (!response.ok) return false;
+        const html = await response.text();
+        return extractListingUrlsFromHtml(html).length > 0;
       } catch {
         return false;
       }
