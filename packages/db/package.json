@@ -9,7 +9,8 @@
     "lint": "tsc --noEmit",
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate",
-    "push": "drizzle-kit push"
+    "push": "drizzle-kit push",
+    "studio": "drizzle-kit studio"
   },
   "dependencies": {
     "drizzle-orm": "^0.39.0",

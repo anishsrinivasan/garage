@@ -12,7 +12,11 @@
     "scrape": "bun run apps/scraper/src/index.ts",
     "scrape:instagram": "bun run apps/scraper/src/index.ts --source instagram",
     "scrape:cars24": "bun run apps/scraper/src/index.ts --source cars24",
-    "scrape:cardekho": "bun run apps/scraper/src/index.ts --source cardekho"
+    "scrape:cardekho": "bun run apps/scraper/src/index.ts --source cardekho",
+    "db:push": "bun run --cwd packages/db push",
+    "db:generate": "bun run --cwd packages/db generate",
+    "db:migrate": "bun run --cwd packages/db migrate",
+    "db:studio": "bun run --cwd packages/db studio"
   },
   "devDependencies": {
     "turbo": "^2.4.0",
