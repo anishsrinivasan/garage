@@ -7,12 +7,13 @@ import type {
   NormalizedListing,
 } from "@preowned-cars/shared";
 import { CARDEKHO_CONFIG } from "./cardekho-config";
+import { parseIndianPrice } from "../utils/price";
 
 type RawCardekhoListing = {
   make: string;
   model: string;
   variant?: string;
-  year: number;
+  year: number | null;
   price: number;
   kmDriven?: number;
   fuelType?: string;
@@ -27,15 +28,7 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function parsePrice(text: string): number | null {
-  const cleaned = text.replace(/[₹,\s]/g, "");
-  const lakhMatch = cleaned.match(/([\d.]+)\s*(?:lakh|lac)/i);
-  if (lakhMatch) return Math.round(parseFloat(lakhMatch[1]!) * 100000);
-  const croreMatch = cleaned.match(/([\d.]+)\s*(?:crore|cr)/i);
-  if (croreMatch) return Math.round(parseFloat(croreMatch[1]!) * 10000000);
-  const num = parseFloat(cleaned);
-  return isNaN(num) ? null : num;
-}
+const parsePrice = parseIndianPrice;
 
 function parseKm(text: string): number | null {
   const cleaned = text.replace(/[,\s]/g, "");
@@ -101,11 +94,18 @@ function parseListingsFromHtml(html: string): RawCardekhoListing[] {
         const make = brandName || nameMake;
         if (!make || !model) continue;
 
-        const year =
+        const rawYear =
           product.vehicleModelDate ??
           product.productionDate ??
           parsedYear ??
-          new Date().getFullYear();
+          null;
+
+        if (rawYear == null) {
+          const url = product.url ?? product.offers?.url ?? "";
+          console.warn(`[cardekho] Could not parse year from JSON-LD for "${name}" (${resolveUrl(url)})`);
+        }
+
+        const year = rawYear;
 
         const priceText =
           product.offers?.price ??
@@ -127,7 +127,7 @@ function parseListingsFromHtml(html: string): RawCardekhoListing[] {
           make,
           model,
           variant,
-          year: typeof year === "string" ? parseInt(year, 10) : year,
+          year: year == null ? null : typeof year === "string" ? parseInt(year, 10) : year,
           price,
           kmDriven: product.mileageFromOdometer?.value
             ? (parseKm(String(product.mileageFromOdometer.value)) ?? undefined)
@@ -187,7 +187,11 @@ function parseListingsFromHtml(html: string): RawCardekhoListing[] {
     const price = parsePrice(priceEl);
     if (!price) return;
 
-    const year = parsedYear ?? new Date().getFullYear();
+    const year = parsedYear ?? null;
+
+    if (year == null) {
+      console.warn(`[cardekho] Could not parse year from HTML card title: "${titleEl}"`);
+    }
 
     const detailsText = card.text();
 
@@ -245,7 +249,7 @@ function parseListingsFromHtml(html: string): RawCardekhoListing[] {
 }
 
 function normalizeListing(raw: RawCardekhoListing): NormalizedListing | null {
-  if (!raw.make || !raw.model || !raw.year || !raw.price) return null;
+  if (!raw.make || !raw.model || !raw.price) return null;
 
   return {
     make: raw.make.trim(),

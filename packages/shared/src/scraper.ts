@@ -10,7 +10,7 @@ export type NormalizedListing = {
   make: string;
   model: string;
   variant?: string;
-  year: number;
+  year: number | null;
   price: number;
   kmDriven?: number;
   fuelType?: string;

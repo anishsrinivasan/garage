@@ -29,7 +29,9 @@ export function validateListing(listing: NormalizedListing): ValidationResult {
     errors.push(`price ${listing.price} outside ₹${MIN_PRICE}–₹${MAX_PRICE} range`);
   }
 
-  if (listing.year < MIN_YEAR || listing.year > MAX_YEAR) {
+  if (listing.year == null) {
+    errors.push("year is missing");
+  } else if (listing.year < MIN_YEAR || listing.year > MAX_YEAR) {
     errors.push(`year ${listing.year} outside ${MIN_YEAR}–${MAX_YEAR} range`);
   }
 
