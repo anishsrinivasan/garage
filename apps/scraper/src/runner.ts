@@ -26,7 +26,7 @@ async function upsertListings(listings: NormalizedListing[]): Promise<{ newCount
         make: listing.make,
         model: listing.model,
         variant: listing.variant ?? null,
-        year: listing.year,
+        year: listing.year!,
         price: String(listing.price),
         kmDriven: listing.kmDriven ?? null,
         fuelType: listing.fuelType ?? null,

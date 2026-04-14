@@ -7,12 +7,9 @@ export const INSTAGRAM_CONFIG = {
   postsPerAccount: 20,
   scrollDelayMs: 2000,
   navigationTimeoutMs: 30000,
+  recheckAfterHours: 48,
 } as const;
 
 export const INSTAGRAM_DEALER_HANDLES: string[] = [
-  "chennai_preowned_cars",
-  "chennai_used_cars_hub",
-  "chennaiusedcardealers",
-  "premiumcars_chennai",
-  "motormartchennai",
+  "germanmechatronics",
 ];

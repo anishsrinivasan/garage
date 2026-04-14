@@ -1,5 +1,5 @@
 import { chromium } from "playwright";
-import { INSTAGRAM_CONFIG, INSTAGRAM_DEALERS_STATIC } from "./adapters/instagram-config";
+import { INSTAGRAM_CONFIG, INSTAGRAM_DEALER_HANDLES } from "./adapters/instagram-config";
 import * as path from "path";
 import * as fs from "fs";
 
@@ -39,7 +39,7 @@ async function dismissLoginModal(page: any): Promise<void> {
 async function debugInstagram() {
   ensureDir(SCREENSHOTS_DIR);
 
-  const handle = process.argv[2] || INSTAGRAM_DEALERS_STATIC[0].handle;
+  const handle = process.argv[2] || INSTAGRAM_DEALER_HANDLES[0];
   const headless = process.argv.includes("--headless");
   const maxPosts = parseInt(process.argv.find((a) => a.startsWith("--posts="))?.split("=")[1] ?? "3");
   const profileUrl = `${INSTAGRAM_CONFIG.baseUrl}/${handle}/`;

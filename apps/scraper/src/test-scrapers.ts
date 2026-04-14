@@ -26,7 +26,7 @@ function validateListing(listing: NormalizedListing, index: number, source: stri
       issues.push(`listing #${index}: missing "${field}"`);
     }
   }
-  if (listing.year < 1990 || listing.year > 2027) issues.push(`listing #${index}: bad year ${listing.year}`);
+  if (listing.year != null && (listing.year < 1990 || listing.year > 2027)) issues.push(`listing #${index}: bad year ${listing.year}`);
   if (listing.price <= 0 || listing.price > 100_000_000) issues.push(`listing #${index}: bad price ${listing.price}`);
   if (listing.sourceUrl && !listing.sourceUrl.startsWith("http")) issues.push(`listing #${index}: relative URL`);
   return issues;
@@ -150,7 +150,7 @@ async function testCardekhoLive() {
     assert("Max price < 1 crore (reasonable)", maxPrice < 10000000, `max=${maxPrice}`);
 
     // Year range sanity
-    const years = result.listings.map(l => l.year);
+    const years = result.listings.map(l => l.year).filter((y): y is number => y != null);
     const minYear = Math.min(...years);
     const maxYear = Math.max(...years);
     assert("Years in reasonable range (2005-2026)", minYear >= 2000 && maxYear <= 2027,
