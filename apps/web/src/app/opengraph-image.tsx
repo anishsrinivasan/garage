@@ -41,15 +41,17 @@ export default function OpenGraphImage() {
           </div>
           <div
             style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
               fontSize: 36,
               fontWeight: 700,
               letterSpacing: "-0.02em",
             }}
           >
-            Torque
+            <span>Torque</span>
             <span
               style={{
-                marginLeft: 12,
                 padding: "4px 10px",
                 borderRadius: 8,
                 border: "1px solid rgba(255,255,255,0.16)",
