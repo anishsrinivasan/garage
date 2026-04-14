@@ -6,12 +6,28 @@ export type ScraperConfig = {
   rateLimit?: { requestsPerMinute: number };
 };
 
+export type ListingStatus = "priced" | "price_on_request";
+
+export type SaleStatus = "available" | "sold" | "removed";
+
+export type MediaItem = {
+  url: string;
+  type: "image" | "video";
+  mimeType?: string | null;
+  posterUrl?: string | null;
+};
+
 export type NormalizedListing = {
   make: string;
   model: string;
   variant?: string;
   year: number | null;
-  price: number;
+  price: number | null;
+  listingStatus?: ListingStatus;
+  saleStatus?: SaleStatus;
+  soldAt?: Date | null;
+  dealerSourceId?: string;
+  garageId?: string;
   kmDriven?: number;
   fuelType?: string;
   transmission?: string;
@@ -26,7 +42,7 @@ export type NormalizedListing = {
   sellerName?: string;
   sellerPhone?: string;
   sellerType?: string;
-  photos: string[];
+  media: MediaItem[];
   description?: string;
   listedAt?: Date;
 };

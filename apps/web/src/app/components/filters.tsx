@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useTransition } from "react";
+import { Search, X, ChevronDown } from "lucide-react";
 
 interface FilterOption {
   cities: string[];
@@ -29,109 +30,100 @@ export function Filters({ options }: { options: FilterOption }) {
         router.push(`/?${params.toString()}`);
       });
     },
-    [router, searchParams, startTransition]
+    [router, searchParams, startTransition],
   );
 
   const current = (key: string) => searchParams.get(key) ?? "";
+  const activeCount = Array.from(searchParams.keys()).filter(
+    (k) => !["sortBy", "sortOrder", "page"].includes(k),
+  ).length;
 
   return (
-    <div className={`space-y-4 ${isPending ? "opacity-60" : ""}`}>
+    <div className={`space-y-5 transition-opacity ${isPending ? "opacity-60" : ""}`}>
       <div>
-        <label className="mb-1 block text-xs font-medium text-gray-500 uppercase">
-          Search
-        </label>
-        <input
-          type="text"
-          placeholder="Make, model, variant…"
-          defaultValue={current("search")}
-          onChange={(e) => update("search", e.target.value)}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        />
+        <label className="field-label">Search</label>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-500" />
+          <input
+            type="text"
+            placeholder="Make, model, variant…"
+            defaultValue={current("search")}
+            onChange={(e) => update("search", e.target.value)}
+            className="field pl-9"
+          />
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-500 uppercase">
-            Min Price
-          </label>
+      <div>
+        <label className="field-label">Price Range (₹)</label>
+        <div className="grid grid-cols-2 gap-2">
           <input
             type="number"
-            placeholder="₹"
+            placeholder="Min"
             defaultValue={current("minPrice")}
             onChange={(e) => update("minPrice", e.target.value)}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="field"
           />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-500 uppercase">
-            Max Price
-          </label>
           <input
             type="number"
-            placeholder="₹"
+            placeholder="Max"
             defaultValue={current("maxPrice")}
             onChange={(e) => update("maxPrice", e.target.value)}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="field"
           />
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-500 uppercase">
-            Min Year
-          </label>
+      <div>
+        <label className="field-label">Year Range</label>
+        <div className="grid grid-cols-2 gap-2">
           <input
             type="number"
-            placeholder="e.g. 2018"
+            placeholder="From"
             defaultValue={current("minYear")}
             onChange={(e) => update("minYear", e.target.value)}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="field"
           />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-500 uppercase">
-            Max Year
-          </label>
           <input
             type="number"
-            placeholder="e.g. 2024"
+            placeholder="To"
             defaultValue={current("maxYear")}
             onChange={(e) => update("maxYear", e.target.value)}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="field"
           />
         </div>
       </div>
 
-      <SelectFilter
-        label="Fuel Type"
+      <PillSelect
+        label="Fuel"
         paramKey="fuelType"
         options={options.fuelTypes}
         current={current("fuelType")}
         onChange={update}
       />
-      <SelectFilter
+      <PillSelect
         label="Transmission"
         paramKey="transmission"
         options={options.transmissions}
         current={current("transmission")}
         onChange={update}
       />
-      <SelectFilter
-        label="Body Type"
+      <PillSelect
+        label="Body"
         paramKey="bodyType"
         options={options.bodyTypes}
         current={current("bodyType")}
         onChange={update}
       />
-      <SelectFilter
+
+      <SelectField
         label="Source"
         paramKey="sourcePlatform"
         options={options.platforms}
         current={current("sourcePlatform")}
         onChange={update}
       />
-      <SelectFilter
+      <SelectField
         label="City"
         paramKey="city"
         options={options.cities}
@@ -139,51 +131,91 @@ export function Filters({ options }: { options: FilterOption }) {
         onChange={update}
       />
 
-      <div>
-        <label className="mb-1 block text-xs font-medium text-gray-500 uppercase">
-          Sort By
-        </label>
-        <select
-          value={current("sortBy") || "scrapedAt"}
-          onChange={(e) => update("sortBy", e.target.value)}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        >
-          <option value="scrapedAt">Newest First</option>
-          <option value="price">Price</option>
-          <option value="year">Year</option>
-          <option value="kmDriven">Km Driven</option>
-        </select>
+      <div className="grid grid-cols-2 gap-2 border-t border-white/5 pt-4">
+        <div>
+          <label className="field-label">Sort</label>
+          <SelectRaw
+            value={current("sortBy") || "scrapedAt"}
+            onChange={(v) => update("sortBy", v)}
+          >
+            <option value="scrapedAt">Newest</option>
+            <option value="price">Price</option>
+            <option value="year">Year</option>
+            <option value="kmDriven">Km</option>
+          </SelectRaw>
+        </div>
+        <div>
+          <label className="field-label">Order</label>
+          <SelectRaw
+            value={current("sortOrder") || "desc"}
+            onChange={(v) => update("sortOrder", v)}
+          >
+            <option value="desc">↓ Desc</option>
+            <option value="asc">↑ Asc</option>
+          </SelectRaw>
+        </div>
       </div>
 
-      <div>
-        <label className="mb-1 block text-xs font-medium text-gray-500 uppercase">
-          Order
-        </label>
-        <select
-          value={current("sortOrder") || "desc"}
-          onChange={(e) => update("sortOrder", e.target.value)}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        >
-          <option value="desc">Descending</option>
-          <option value="asc">Ascending</option>
-        </select>
-      </div>
-
-      {searchParams.toString() && (
+      {activeCount > 0 && (
         <button
-          onClick={() => {
-            startTransition(() => router.push("/"));
-          }}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
+          onClick={() => startTransition(() => router.push("/"))}
+          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-accent/20 bg-accent/5 px-3 py-2 text-xs font-semibold text-accent transition hover:border-accent/40 hover:bg-accent/10"
         >
-          Clear All Filters
+          <X className="h-3.5 w-3.5" />
+          Clear {activeCount} filter{activeCount !== 1 ? "s" : ""}
         </button>
       )}
     </div>
   );
 }
 
-function SelectFilter({
+function PillSelect({
+  label,
+  paramKey,
+  options,
+  current,
+  onChange,
+}: {
+  label: string;
+  paramKey: string;
+  options: string[];
+  current: string;
+  onChange: (key: string, value: string) => void;
+}) {
+  if (options.length === 0) return null;
+  return (
+    <div>
+      <label className="field-label">{label}</label>
+      <div className="flex flex-wrap gap-1.5">
+        <button
+          type="button"
+          onClick={() => onChange(paramKey, "")}
+          className={pillClass(current === "")}
+        >
+          All
+        </button>
+        {options.map((opt) => (
+          <button
+            type="button"
+            key={opt}
+            onClick={() => onChange(paramKey, opt)}
+            className={pillClass(current === opt)}
+          >
+            {opt}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function pillClass(active: boolean): string {
+  return active
+    ? "rounded-md border border-accent/40 bg-accent/15 px-2.5 py-1 text-[11px] font-semibold capitalize text-accent shadow-[0_0_0_3px_rgba(251,146,60,0.08)] transition"
+    : "rounded-md border border-white/[0.08] bg-white/[0.02] px-2.5 py-1 text-[11px] font-medium capitalize text-ink-300 transition hover:border-white/20 hover:bg-white/5 hover:text-ink-50";
+}
+
+function SelectField({
   label,
   paramKey,
   options,
@@ -198,21 +230,38 @@ function SelectFilter({
 }) {
   return (
     <div>
-      <label className="mb-1 block text-xs font-medium text-gray-500 uppercase">
-        {label}
-      </label>
-      <select
-        value={current}
-        onChange={(e) => onChange(paramKey, e.target.value)}
-        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm capitalize focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-      >
+      <label className="field-label">{label}</label>
+      <SelectRaw value={current} onChange={(v) => onChange(paramKey, v)}>
         <option value="">All</option>
         {options.map((opt) => (
-          <option key={opt} value={opt} className="capitalize">
+          <option key={opt} value={opt}>
             {opt}
           </option>
         ))}
+      </SelectRaw>
+    </div>
+  );
+}
+
+function SelectRaw({
+  value,
+  onChange,
+  children,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="field cursor-pointer appearance-none pr-8 capitalize"
+      >
+        {children}
       </select>
+      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-500" />
     </div>
   );
 }

@@ -10,6 +10,7 @@ export const INSTAGRAM_CONFIG = {
   recheckAfterHours: 48,
   postFetchConcurrency: 4,
   postFetchStaggerMs: 400,
+  maxImagesPerPost: 8,
 } as const;
 
 export const INSTAGRAM_DEALER_HANDLES: string[] = [

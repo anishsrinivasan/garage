@@ -1,4 +1,4 @@
-import type { NormalizedListing } from "@preowned-cars/shared";
+import type { MediaItem, NormalizedListing } from "@preowned-cars/shared";
 
 const MIN_PRICE = 10_000;
 const MAX_PRICE = 100_000_000;
@@ -11,7 +11,7 @@ const URL_REGEX = /^https?:\/\/.+/;
 export type ValidationResult = {
   valid: boolean;
   errors: string[];
-  sanitizedPhotos?: string[];
+  sanitizedMedia?: MediaItem[];
 };
 
 export function validateListing(listing: NormalizedListing): ValidationResult {
@@ -25,8 +25,12 @@ export function validateListing(listing: NormalizedListing): ValidationResult {
     errors.push("model is empty");
   }
 
-  if (listing.price < MIN_PRICE || listing.price > MAX_PRICE) {
-    errors.push(`price ${listing.price} outside ₹${MIN_PRICE}–₹${MAX_PRICE} range`);
+  if (listing.price != null) {
+    if (listing.price < MIN_PRICE || listing.price > MAX_PRICE) {
+      errors.push(
+        `price ${listing.price} outside ₹${MIN_PRICE}–₹${MAX_PRICE} range`,
+      );
+    }
   }
 
   if (listing.year == null) {
@@ -39,21 +43,26 @@ export function validateListing(listing: NormalizedListing): ValidationResult {
     errors.push(`kmDriven ${listing.kmDriven} outside 0–${MAX_KM} range`);
   }
 
-  const sanitizedPhotos = listing.photos.filter(
-    (p) => typeof p === "string" && URL_REGEX.test(p)
+  const inputMedia = listing.media ?? [];
+  const sanitizedMedia = inputMedia.filter(
+    (m) =>
+      m &&
+      typeof m.url === "string" &&
+      URL_REGEX.test(m.url) &&
+      (m.type === "image" || m.type === "video"),
   );
-  const invalidPhotoCount = listing.photos.length - sanitizedPhotos.length;
-  if (invalidPhotoCount > 0) {
-    errors.push(`${invalidPhotoCount} invalid photo URL(s) filtered`);
+  const invalidCount = inputMedia.length - sanitizedMedia.length;
+  if (invalidCount > 0) {
+    errors.push(`${invalidCount} invalid media item(s) filtered`);
   }
 
   const hasBlockingErrors = errors.some(
-    (e) => !e.includes("photo URL(s) filtered")
+    (e) => !e.includes("invalid media item(s) filtered"),
   );
 
   return {
     valid: !hasBlockingErrors,
     errors,
-    sanitizedPhotos,
+    sanitizedMedia,
   };
 }

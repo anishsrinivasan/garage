@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { Suspense } from "react";
+import { Sparkles, TrendingUp, LayoutGrid } from "lucide-react";
 import { getListings, getFilterOptions } from "@/app/lib/queries";
 import type { ListingFilters, SortField, SortOrder } from "@/app/lib/queries";
 import { Filters } from "@/app/components/filters";
@@ -36,50 +37,135 @@ export default async function HomePage({ searchParams }: PageProps) {
     getFilterOptions(),
   ]);
 
-  return (
-    <div className="lg:flex lg:gap-6">
-      <aside className="mb-6 shrink-0 lg:mb-0 lg:w-64">
-        <MobileFilterToggle>
-          <div className="rounded-lg border border-gray-200 bg-white p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-700">
-              Filters
-            </h2>
-            <Suspense>
-              <Filters options={filterOptions} />
-            </Suspense>
-          </div>
-        </MobileFilterToggle>
-      </aside>
+  const sourceCount = filterOptions.platforms.length;
+  const cityCount = filterOptions.cities.length;
 
-      <div className="min-w-0 flex-1">
-        <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold">
-            Car Listings
-          </h1>
-          <span className="text-sm text-gray-500">
-            {result.total} result{result.total !== 1 ? "s" : ""}
+  return (
+    <>
+      <section className="relative mb-10 overflow-hidden rounded-2xl border border-white/[0.06] bg-ink-900/40 px-6 py-10 backdrop-blur-sm sm:px-10 sm:py-14">
+        <div className="pointer-events-none absolute inset-0 -z-10">
+          <div className="absolute -top-24 left-1/4 h-[400px] w-[400px] rounded-full bg-accent/20 blur-[120px]" />
+          <div className="absolute -bottom-24 right-1/4 h-[360px] w-[360px] rounded-full bg-electric/10 blur-[120px]" />
+        </div>
+
+        <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] font-medium text-ink-300">
+          <Sparkles className="h-3 w-3 text-accent" />
+          <span className="font-mono uppercase tracking-[0.18em]">
+            AI-curated · Updated hourly
           </span>
         </div>
 
-        {result.listings.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-gray-300 py-16 text-center text-gray-500">
-            No listings match your filters.
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {result.listings.map((listing) => (
-              <ListingCard key={listing.id} listing={listing as any} />
-            ))}
-          </div>
-        )}
+        <h1 className="mt-5 max-w-3xl font-display text-4xl font-bold leading-[1.05] tracking-tight sm:text-6xl">
+          <span className="text-gradient">Your next ride,</span>
+          <br />
+          <span className="text-accent-gradient">engineered to find you.</span>
+        </h1>
+        <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-ink-300">
+          Every preowned car listing across Cars24, CarDekho, OLX, and trusted
+          Instagram dealers — deduplicated, normalized, and searchable in one place.
+        </p>
 
-        <Suspense>
-          <Pagination
-            page={result.page}
-            totalPages={result.totalPages}
-            total={result.total}
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Stat
+            icon={<LayoutGrid className="h-3.5 w-3.5" />}
+            label="Live listings"
+            value={result.total.toLocaleString("en-IN")}
           />
-        </Suspense>
+          <Stat
+            icon={<TrendingUp className="h-3.5 w-3.5" />}
+            label="Sources"
+            value={sourceCount.toString()}
+          />
+          <Stat label="Cities" value={cityCount.toString()} />
+        </div>
+      </section>
+
+      <div className="lg:flex lg:gap-8">
+        <aside className="mb-6 shrink-0 lg:mb-0 lg:w-72">
+          <MobileFilterToggle>
+            <div className="surface sticky top-[84px] rounded-xl p-5">
+              <div className="mb-5 flex items-center justify-between">
+                <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-ink-100">
+                  Filters
+                </h2>
+                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink-500">
+                  Refine
+                </span>
+              </div>
+              <Suspense>
+                <Filters options={filterOptions} />
+              </Suspense>
+            </div>
+          </MobileFilterToggle>
+        </aside>
+
+        <div className="min-w-0 flex-1">
+          <div className="mb-6 flex items-end justify-between">
+            <div>
+              <h2 className="font-display text-2xl font-bold tracking-tight text-ink-50">
+                {sp.search ? `Results for "${sp.search}"` : "Latest listings"}
+              </h2>
+              <p className="mt-1 text-sm text-ink-400">
+                {result.total.toLocaleString("en-IN")} car
+                {result.total !== 1 ? "s" : ""} match your filters
+              </p>
+            </div>
+          </div>
+
+          {result.listings.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-white/10 bg-white/[0.02] py-20 text-center">
+              <p className="font-display text-lg font-semibold text-ink-200">
+                No cars match those filters.
+              </p>
+              <p className="max-w-sm text-sm text-ink-500">
+                Try widening the price or year range, or clearing a fuel / body
+                type constraint.
+              </p>
+            </div>
+          ) : (
+            <div className="grid animate-fade-in-up grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+              {result.listings.map((listing) => (
+                <ListingCard key={listing.id} listing={listing as any} />
+              ))}
+            </div>
+          )}
+
+          <Suspense>
+            <Pagination
+              page={result.page}
+              totalPages={result.totalPages}
+              total={result.total}
+            />
+          </Suspense>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function Stat({
+  icon,
+  label,
+  value,
+}: {
+  icon?: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="surface flex items-center gap-3 rounded-xl px-4 py-2.5">
+      {icon && (
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 text-accent ring-1 ring-inset ring-accent/20">
+          {icon}
+        </span>
+      )}
+      <div>
+        <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink-500">
+          {label}
+        </p>
+        <p className="font-display text-lg font-bold leading-none text-ink-50">
+          {value}
+        </p>
       </div>
     </div>
   );

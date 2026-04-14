@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export function Pagination({
   page,
@@ -28,28 +29,34 @@ export function Pagination({
 
   return (
     <div
-      className={`mt-6 flex items-center justify-between ${isPending ? "opacity-60" : ""}`}
+      className={`mt-10 flex flex-col items-center justify-between gap-4 border-t border-white/5 pt-6 transition-opacity sm:flex-row ${isPending ? "opacity-60" : ""}`}
     >
-      <p className="text-sm text-gray-500">
-        {total} listing{total !== 1 ? "s" : ""} found
+      <p className="font-mono text-[11px] uppercase tracking-wider text-ink-500">
+        {total.toLocaleString("en-IN")} listing{total !== 1 ? "s" : ""}
       </p>
-      <div className="flex gap-2">
+      <div className="flex items-center gap-1.5">
         <button
           onClick={() => goTo(page - 1)}
           disabled={page <= 1}
-          className="rounded border px-3 py-1 text-sm disabled:opacity-40"
+          className="btn-ghost"
         >
+          <ChevronLeft className="h-3.5 w-3.5" />
           Prev
         </button>
-        <span className="px-2 py-1 text-sm text-gray-600">
-          {page} / {totalPages}
-        </span>
+        <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5">
+          <span className="font-mono text-sm font-semibold text-ink-50">
+            {page}
+          </span>
+          <span className="text-xs text-ink-500">of</span>
+          <span className="font-mono text-xs text-ink-400">{totalPages}</span>
+        </div>
         <button
           onClick={() => goTo(page + 1)}
           disabled={page >= totalPages}
-          className="rounded border px-3 py-1 text-sm disabled:opacity-40"
+          className="btn-ghost"
         >
           Next
+          <ChevronRight className="h-3.5 w-3.5" />
         </button>
       </div>
     </div>

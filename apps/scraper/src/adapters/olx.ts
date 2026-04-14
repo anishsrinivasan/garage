@@ -367,7 +367,7 @@ export function createOlxAdapter(): ScraperAdapter {
                 sourceListingId: card.url.match(/(\d+)$/)?.[1],
                 sellerName: detailData.sellerName,
                 sellerType: "individual",
-                photos,
+                media: photos.map((url) => ({ url, type: "image" as const })),
                 description: detailData.description,
               };
 

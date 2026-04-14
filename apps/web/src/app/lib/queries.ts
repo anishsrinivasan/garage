@@ -35,6 +35,32 @@ export interface ListingFilters {
 
 const PAGE_SIZE = 24;
 
+// Premium-segment makes we want to surface on the default "Featured" feed.
+// Matched case-insensitively against car_listings.make.
+const PREMIUM_BRANDS_LOWER = [
+  "bmw",
+  "mercedes-benz",
+  "mercedes",
+  "audi",
+  "porsche",
+  "lexus",
+  "jaguar",
+  "land rover",
+  "range rover",
+  "volvo",
+  "mini",
+  "lamborghini",
+  "ferrari",
+  "bentley",
+  "rolls-royce",
+  "rolls royce",
+  "maserati",
+  "aston martin",
+  "mclaren",
+  "jeep",
+  "bmw motorrad",
+];
+
 export async function getListings(filters: ListingFilters) {
   const conditions: SQL[] = [eq(carListings.isActive, true)];
 
@@ -82,13 +108,45 @@ export async function getListings(filters: ListingFilters) {
 
   const sortField = filters.sortBy ?? "scrapedAt";
   const sortOrder = filters.sortOrder ?? "desc";
-  const column = {
-    price: carListings.price,
-    year: carListings.year,
-    kmDriven: carListings.kmDriven,
-    scrapedAt: carListings.scrapedAt,
-  }[sortField];
-  const orderBy = sortOrder === "asc" ? asc(column) : desc(column);
+
+  // Default "Featured" ordering (sortBy=scrapedAt + desc):
+  //   1. Available listings before sold ones.
+  //   2. Listings with at least one media item first.
+  //   3. Premium-segment brands boosted above mass-market ones.
+  //   4. Higher priced cars first (premium-within-premium).
+  //   5. Most recently scraped first.
+  // Other explicit sort choices (price / year / kmDriven) bypass this.
+  const useFeaturedOrder = sortField === "scrapedAt" && sortOrder === "desc";
+  const orderBy = useFeaturedOrder
+    ? [
+        sql`(${carListings.saleStatus} = 'available') DESC`,
+        sql`(jsonb_array_length(coalesce(${carListings.media}, '[]'::jsonb)) > 0) DESC`,
+        sql`(CASE WHEN lower(${carListings.make}) = ANY(ARRAY[${sql.join(
+          PREMIUM_BRANDS_LOWER.map((b) => sql`${b}`),
+          sql`, `,
+        )}]::text[]) THEN 1 ELSE 0 END) DESC`,
+        sql`${carListings.price} DESC NULLS LAST`,
+        desc(carListings.scrapedAt),
+      ]
+    : [
+        sortOrder === "asc"
+          ? asc(
+              {
+                price: carListings.price,
+                year: carListings.year,
+                kmDriven: carListings.kmDriven,
+                scrapedAt: carListings.scrapedAt,
+              }[sortField],
+            )
+          : desc(
+              {
+                price: carListings.price,
+                year: carListings.year,
+                kmDriven: carListings.kmDriven,
+                scrapedAt: carListings.scrapedAt,
+              }[sortField],
+            ),
+      ];
 
   const page = filters.page ?? 1;
   const pageSize = filters.pageSize ?? PAGE_SIZE;
@@ -99,7 +157,7 @@ export async function getListings(filters: ListingFilters) {
       .select()
       .from(carListings)
       .where(where)
-      .orderBy(orderBy)
+      .orderBy(...orderBy)
       .limit(pageSize)
       .offset(offset),
     db.select({ total: count() }).from(carListings).where(where),

@@ -18,6 +18,7 @@ export type ParsedCarData = {
   bodyType: string | null;
   sellerPhone: string | null;
   isCarListing: boolean;
+  isSold: boolean;
 };
 
 export type LlmImage =
@@ -50,6 +51,7 @@ const EMPTY: ParsedCarData = {
   bodyType: null,
   sellerPhone: null,
   isCarListing: false,
+  isSold: false,
 };
 
 const PostResultSchema = z.object({
@@ -81,6 +83,7 @@ const PostResultSchema = z.object({
     .nullable(),
   sellerPhone: z.string().nullable(),
   isCarListing: z.boolean(),
+  isSold: z.boolean(),
 });
 
 const BatchSchema = z.object({
@@ -93,9 +96,11 @@ You will be given MULTIPLE posts from a single dealer, numbered starting at 1. F
 
 Rules:
 - Price is in INR. Convert lakhs notation: "4.5L" or "4.5 lakhs" = 450000
+- If a post clearly shows a specific preowned car for sale but the price is not stated (e.g. "DM for price", "price on request", only phone number shown), STILL set isCarListing=true and leave price=null. Do NOT mark it as non-listing just because price is missing.
 - Year is 4 digits (e.g., 2019)
 - kmDriven is kilometers (e.g., "45k km" = 45000)
-- If a post is NOT about selling a specific preowned car (reel, meme, ad, generic content), set isCarListing=false and leave car fields null
+- Only set isCarListing=false if the post is genuinely not a car-for-sale post (meme, ad for services, generic content, dealer announcements without a specific car). Reels are valid car listings — treat them the same as photo posts.
+- Set isSold=true when the post indicates the car is SOLD (e.g. "SOLD" overlay/watermark on an image, or words like "sold", "booked", "no longer available" in the caption). Otherwise false.
 - Extract phone numbers if visible in caption or image overlays
 - Use standard make/model names ("Maruti Suzuki" not "Maruti", "Hyundai Creta" not "creta")
 
@@ -112,7 +117,10 @@ function imageToPart(img: LlmImage): ImagePart {
   };
 }
 
-async function extractChunk(posts: BatchPostInput[]): Promise<ParsedCarData[]> {
+async function extractChunk(
+  posts: BatchPostInput[],
+  metadata: Record<string, unknown>,
+): Promise<ParsedCarData[]> {
   if (posts.length === 0) return [];
 
   const content: UserPart[] = [];
@@ -142,6 +150,13 @@ async function extractChunk(posts: BatchPostInput[]): Promise<ParsedCarData[]> {
     schemaName: "InstagramPostCarListings",
     system: SYSTEM_PROMPT,
     messages: [{ role: "user", content }],
+    operation: "instagram.extract_batch",
+    metadata: {
+      ...metadata,
+      postCount: posts.length,
+      postUrls: posts.map((p) => p.postUrl),
+      totalImages: posts.reduce((sum, p) => sum + p.images.length, 0),
+    },
   });
 
   const results: ParsedCarData[] = Array.from(
@@ -159,6 +174,7 @@ async function extractChunk(posts: BatchPostInput[]): Promise<ParsedCarData[]> {
 
 export async function extractCarDataForPostsBatch(
   posts: BatchPostInput[],
+  context: { handle: string } = { handle: "unknown" },
 ): Promise<ParsedCarData[]> {
   if (posts.length === 0) return [];
   const results: ParsedCarData[] = [];
@@ -169,7 +185,11 @@ export async function extractCarDataForPostsBatch(
     console.log(
       `[instagram-llm] chunk ${chunkIdx}/${chunkCount} (${chunk.length} post(s))`,
     );
-    const chunkResults = await extractChunk(chunk);
+    const chunkResults = await extractChunk(chunk, {
+      handle: context.handle,
+      chunkIndex: chunkIdx,
+      chunkCount,
+    });
     results.push(...chunkResults);
   }
   return results;

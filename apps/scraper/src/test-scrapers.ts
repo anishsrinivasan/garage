@@ -27,7 +27,7 @@ function validateListing(listing: NormalizedListing, index: number, source: stri
     }
   }
   if (listing.year != null && (listing.year < 1990 || listing.year > 2027)) issues.push(`listing #${index}: bad year ${listing.year}`);
-  if (listing.price <= 0 || listing.price > 100_000_000) issues.push(`listing #${index}: bad price ${listing.price}`);
+  if (listing.price != null && (listing.price <= 0 || listing.price > 100_000_000)) issues.push(`listing #${index}: bad price ${listing.price}`);
   if (listing.sourceUrl && !listing.sourceUrl.startsWith("http")) issues.push(`listing #${index}: relative URL`);
   return issues;
 }
@@ -35,7 +35,7 @@ function validateListing(listing: NormalizedListing, index: number, source: stri
 function printSample(listings: NormalizedListing[], source: string, count = 5) {
   console.log(`\n  Sample listings (${Math.min(count, listings.length)} of ${listings.length}):`);
   for (const l of listings.slice(0, count)) {
-    console.log(`    ${l.year} ${l.make} ${l.model}${l.variant ? " " + l.variant : ""} | Rs ${l.price.toLocaleString("en-IN")} | ${l.kmDriven ? l.kmDriven.toLocaleString() + " km" : "km N/A"} | ${l.fuelType ?? "fuel N/A"} | ${l.transmission ?? "trans N/A"}`);
+    console.log(`    ${l.year} ${l.make} ${l.model}${l.variant ? " " + l.variant : ""} | Rs ${l.price != null ? l.price.toLocaleString("en-IN") : "on request"} | ${l.kmDriven ? l.kmDriven.toLocaleString() + " km" : "km N/A"} | ${l.fuelType ?? "fuel N/A"} | ${l.transmission ?? "trans N/A"}`);
     console.log(`      URL: ${l.sourceUrl}`);
   }
 }
@@ -129,11 +129,11 @@ async function testCardekhoLive() {
       make: result.listings.filter(l => l.make).length,
       model: result.listings.filter(l => l.model).length,
       year: result.listings.filter(l => l.year).length,
-      price: result.listings.filter(l => l.price > 0).length,
+      price: result.listings.filter(l => l.price != null && l.price > 0).length,
       kmDriven: result.listings.filter(l => l.kmDriven).length,
       fuelType: result.listings.filter(l => l.fuelType).length,
       transmission: result.listings.filter(l => l.transmission).length,
-      photos: result.listings.filter(l => l.photos.length > 0).length,
+      media: result.listings.filter(l => l.media.length > 0).length,
     };
 
     console.log("\n  Data quality coverage:");
@@ -143,9 +143,11 @@ async function testCardekhoLive() {
     }
 
     // Price range sanity
-    const prices = result.listings.map(l => l.price);
-    const minPrice = Math.min(...prices);
-    const maxPrice = Math.max(...prices);
+    const prices = result.listings
+      .map(l => l.price)
+      .filter((p): p is number => p != null);
+    const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
+    const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
     assert("Min price > 10,000 (reasonable)", minPrice > 10000, `min=${minPrice}`);
     assert("Max price < 1 crore (reasonable)", maxPrice < 10000000, `max=${maxPrice}`);
 
@@ -170,7 +172,15 @@ async function testInstagramConfig() {
   // but we can validate the adapter configuration
   try {
     const { createInstagramAdapter } = await import("./adapters/instagram");
-    const adapter = createInstagramAdapter(["test_handle"]);
+    const adapter = createInstagramAdapter([
+      {
+        dealerSourceId: "test-ds",
+        garageId: "test-garage",
+        handle: "test_handle",
+        displayName: null,
+        city: null,
+      },
+    ]);
     assert("Config name is 'instagram'", adapter.name === "instagram");
     assert("Config city is 'Chennai'", adapter.config.city === "Chennai");
     assert("Config baseUrl set", adapter.config.baseUrl === "https://www.instagram.com");

@@ -150,7 +150,7 @@ function parseCarFromJsonLd(
     sourceUrl: pageUrl,
     sourceListingId: idMatch?.[1],
     sellerType: "dealer",
-    photos: images,
+    media: images.map((url) => ({ url, type: "image" as const })),
   };
 }
 

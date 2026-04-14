@@ -1,12 +1,41 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@preowned-cars/db";
-import { carListings, scrapeRuns } from "@preowned-cars/db";
+import { carListings, dealerSources, scrapeRuns } from "@preowned-cars/db";
 import type { ScraperAdapter, NormalizedListing } from "@preowned-cars/shared";
 import { createHash } from "crypto";
 import { validateListing } from "./utils/validation";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 5000;
+
+const platformDealerCache = new Map<
+  string,
+  { dealerSourceId: string; garageId: string } | null
+>();
+
+async function getAggregatorSource(
+  platform: string,
+): Promise<{ dealerSourceId: string; garageId: string } | null> {
+  if (platformDealerCache.has(platform)) {
+    return platformDealerCache.get(platform) ?? null;
+  }
+  const [row] = await db
+    .select({
+      dealerSourceId: dealerSources.id,
+      garageId: dealerSources.garageId,
+    })
+    .from(dealerSources)
+    .where(
+      and(
+        eq(dealerSources.platform, platform),
+        eq(dealerSources.handle, platform),
+      ),
+    )
+    .limit(1);
+  const value = row ?? null;
+  platformDealerCache.set(platform, value);
+  return value;
+}
 
 function computeContentHash(listing: NormalizedListing): string {
   const key = `${listing.make}|${listing.model}|${listing.year}|${listing.price}|${listing.sourceUrl}`;
@@ -19,6 +48,21 @@ async function upsertListings(listings: NormalizedListing[]): Promise<{ newCount
 
   for (const listing of listings) {
     const contentHash = computeContentHash(listing);
+    const priceValue = listing.price != null ? String(listing.price) : null;
+    const listingStatus =
+      listing.listingStatus ?? (listing.price != null ? "priced" : "price_on_request");
+    const saleStatus = listing.saleStatus ?? "available";
+    const soldAt =
+      listing.soldAt ?? (saleStatus === "sold" ? new Date() : null);
+    let dealerSourceId = listing.dealerSourceId ?? null;
+    let garageId = listing.garageId ?? null;
+    if (!dealerSourceId || !garageId) {
+      const fallback = await getAggregatorSource(listing.sourcePlatform);
+      if (fallback) {
+        dealerSourceId ??= fallback.dealerSourceId;
+        garageId ??= fallback.garageId;
+      }
+    }
 
     const result = await db
       .insert(carListings)
@@ -27,7 +71,8 @@ async function upsertListings(listings: NormalizedListing[]): Promise<{ newCount
         model: listing.model,
         variant: listing.variant ?? null,
         year: listing.year!,
-        price: String(listing.price),
+        price: priceValue,
+        listingStatus,
         kmDriven: listing.kmDriven ?? null,
         fuelType: listing.fuelType ?? null,
         transmission: listing.transmission ?? null,
@@ -42,19 +87,30 @@ async function upsertListings(listings: NormalizedListing[]): Promise<{ newCount
         sellerName: listing.sellerName ?? null,
         sellerPhone: listing.sellerPhone ?? null,
         sellerType: listing.sellerType ?? null,
-        photos: listing.photos,
+        dealerSourceId,
+        garageId,
+        media: listing.media ?? [],
         description: listing.description ?? null,
         listedAt: listing.listedAt ?? null,
+        saleStatus,
+        soldAt,
         contentHash,
         isActive: true,
       })
       .onConflictDoUpdate({
         target: [carListings.sourcePlatform, carListings.sourceUrl],
         set: {
-          price: String(listing.price),
+          price: priceValue,
+          listingStatus,
           kmDriven: listing.kmDriven ?? null,
-          photos: listing.photos,
+          media: listing.media ?? [],
           description: listing.description ?? null,
+          dealerSourceId,
+          garageId,
+          saleStatus,
+          // Only overwrite soldAt when the new value is non-null; don't reset
+          // a previously-sold timestamp just because the new scrape omitted it.
+          ...(soldAt ? { soldAt } : {}),
           isActive: true,
           updatedAt: new Date(),
           contentHash,
@@ -100,8 +156,8 @@ export async function runAdapter(adapter: ScraperAdapter): Promise<void> {
       for (const listing of result.listings) {
         const validation = validateListing(listing);
         if (validation.valid) {
-          if (validation.sanitizedPhotos) {
-            listing.photos = validation.sanitizedPhotos;
+          if (validation.sanitizedMedia) {
+            listing.media = validation.sanitizedMedia;
           }
           validListings.push(listing);
         } else {

@@ -3,12 +3,25 @@ import { existsSync } from "fs";
 import { resolve } from "path";
 import { and, eq, gte, inArray, sql } from "drizzle-orm";
 import { db, scrapedPosts } from "@preowned-cars/db";
+
+type DealerInfo = {
+  dealerSourceId: string;
+  garageId: string;
+  handle: string;
+  displayName: string | null;
+  city: string | null;
+};
+
+function isReelUrl(url: string): boolean {
+  return /\/reel\//.test(url);
+}
 import type {
   ScraperAdapter,
   ScraperConfig,
   ScrapeResult,
   ScrapeError,
   NormalizedListing,
+  MediaItem,
 } from "@preowned-cars/shared";
 import { INSTAGRAM_CONFIG } from "./instagram-config";
 import { extractCarDataForPostsBatch, type LlmImage } from "./instagram-llm";
@@ -34,7 +47,13 @@ async function filterRecentlyProcessedUrls(urls: string[]): Promise<Set<string>>
 }
 
 async function recordScrapedPosts(
-  entries: Array<{ postUrl: string; handle: string; isCarListing: boolean }>,
+  entries: Array<{
+    postUrl: string;
+    handle: string;
+    isCarListing: boolean;
+    isReel?: boolean;
+    skipReason?: string | null;
+  }>,
 ): Promise<void> {
   if (entries.length === 0) return;
   const now = new Date();
@@ -46,6 +65,8 @@ async function recordScrapedPosts(
         postUrl: e.postUrl,
         handle: e.handle,
         isCarListing: e.isCarListing,
+        isReel: e.isReel ?? isReelUrl(e.postUrl),
+        skipReason: e.skipReason ?? null,
         lastCheckedAt: now,
       })),
     )
@@ -54,6 +75,8 @@ async function recordScrapedPosts(
       set: {
         lastCheckedAt: now,
         isCarListing: sql`excluded.is_car_listing`,
+        isReel: sql`excluded.is_reel`,
+        skipReason: sql`excluded.skip_reason`,
       },
     });
 }
@@ -76,8 +99,9 @@ type DownloadedImage = {
 type RawPost = {
   postUrl: string;
   caption: string;
-  imageUrls: string[];
+  media: MediaItem[];
   llmImages: LlmImage[];
+  isReel: boolean;
   timestamp: string | null;
   handle: string;
 };
@@ -115,44 +139,153 @@ async function downloadImages(
   return out;
 }
 
+function isUsablePostImageUrl(url: string): boolean {
+  if (!url) return false;
+  if (!/(cdninstagram|fbcdn)/.test(url)) return false;
+  if (url.includes("/profile_pic") || url.includes("profile_pic")) return false;
+  if (/\/(s|p)\d{2,3}x\d{2,3}\//.test(url)) return false;
+  if (url.includes("s150x150") || url.includes("s320x320") || url.includes("s240x240")) return false;
+  return true;
+}
+
+async function extractPostImageUrls(page: Page): Promise<string[]> {
+  const html = await page.content().catch(() => "");
+  const found = new Set<string>();
+
+  const ogImage = await page
+    .$eval('meta[property="og:image"]', (el) => el.getAttribute("content") ?? "")
+    .catch(() => "");
+  if (ogImage) found.add(ogImage);
+
+  // <link rel="preload" as="image" href="..." imagesrcset="...">
+  // IG uses preload hints for every image in a carousel.
+  const linkAttrs = await page
+    .$$eval(
+      'link[rel="preload"][as="image"]',
+      (links) =>
+        links.flatMap((l) => {
+          const out: string[] = [];
+          const href = l.getAttribute("href");
+          if (href) out.push(href);
+          const srcset = l.getAttribute("imagesrcset") ?? l.getAttribute("imageSrcSet");
+          if (srcset) {
+            for (const part of srcset.split(",")) {
+              const url = part.trim().split(/\s+/)[0];
+              if (url) out.push(url);
+            }
+          }
+          return out;
+        }),
+    )
+    .catch(() => [] as string[]);
+  for (const u of linkAttrs) if (u) found.add(u);
+
+  // Rendered <img> tags (current slide + any eager-loaded neighbours).
+  const imgAttrs = await page
+    .$$eval(
+      'img[src*="cdninstagram"], img[src*="fbcdn"], img[srcset]',
+      (imgs) =>
+        imgs.flatMap((img) => {
+          const out: string[] = [];
+          const src = img.getAttribute("src");
+          if (src) out.push(src);
+          const srcset = img.getAttribute("srcset");
+          if (srcset) {
+            for (const part of srcset.split(",")) {
+              const url = part.trim().split(/\s+/)[0];
+              if (url) out.push(url);
+            }
+          }
+          return out;
+        }),
+    )
+    .catch(() => [] as string[]);
+  for (const u of imgAttrs) if (u) found.add(u);
+
+  // Regex over raw HTML (covers preload links, JSON blobs in <script>).
+  // The protocol and mid-URL slashes may be JSON-escaped as `\/`, and `&`
+  // may appear as `\u0026`, so we match liberally then normalize.
+  const HTML_URL_RE =
+    /https:(?:\\?\/){2}[^"'\s<>]*?(?:cdninstagram\.com|fbcdn\.net)[^"'\s<>]+/g;
+  for (const match of html.matchAll(HTML_URL_RE)) {
+    const url = match[0]
+      .replace(/\\\//g, "/")
+      .replace(/\\u0026/gi, "&");
+    found.add(url);
+  }
+
+  // Dedupe by ig_cache_key (stable per image, survives CDN host rotation);
+  // fall back to filename if the param is absent.
+  const canonical = new Map<string, string>();
+  for (const raw of found) {
+    if (!isUsablePostImageUrl(raw)) continue;
+    let key: string;
+    try {
+      const u = new URL(raw);
+      const cacheKey = u.searchParams.get("ig_cache_key");
+      if (cacheKey) {
+        key = `ck:${cacheKey}`;
+      } else {
+        const filename = u.pathname.split("/").filter(Boolean).pop() ?? u.pathname;
+        key = `f:${filename}`;
+      }
+    } catch {
+      key = `raw:${raw}`;
+    }
+    if (!canonical.has(key)) canonical.set(key, raw);
+  }
+
+  return Array.from(canonical.values());
+}
+
 function extractPostId(postUrl: string): string {
   const m = postUrl.match(/\/(?:p|reel)\/([^/?]+)/);
   return m?.[1] ?? postUrl.split("/").filter(Boolean).pop() ?? "unknown";
 }
 
-async function materializeForLlm(
+async function persistImages(
   handle: string,
   postUrl: string,
   downloads: DownloadedImage[],
-): Promise<{ llmImages: LlmImage[]; publicUrls: string[] }> {
-  const llmImages: LlmImage[] = [];
-  const publicUrls: string[] = [];
+): Promise<{ storedUrls: (string | null)[] }> {
   const r2Enabled = isR2Enabled();
   const postId = extractPostId(postUrl);
-
+  const storedUrls: (string | null)[] = new Array(downloads.length).fill(null);
+  if (!r2Enabled) return { storedUrls };
   for (let i = 0; i < downloads.length; i++) {
     const img = downloads[i]!;
-    if (r2Enabled) {
-      try {
-        const key = `instagram/${handle}/${postId}/${i}.${extensionFor(img.mediaType)}`;
-        const publicUrl = await uploadToR2(key, img.buffer, img.mediaType);
-        llmImages.push({ kind: "url", url: publicUrl });
-        publicUrls.push(publicUrl);
-        continue;
-      } catch (err) {
-        console.warn(
-          `[instagram] R2 upload failed for ${postId}#${i}, falling back to base64: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
+    try {
+      const key = `instagram/${handle}/${postId}/${i}.${extensionFor(img.mediaType)}`;
+      storedUrls[i] = await uploadToR2(key, img.buffer, img.mediaType);
+    } catch (err) {
+      console.warn(
+        `[instagram] R2 upload failed for ${postId}#${i}: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
-    llmImages.push({
-      kind: "base64",
-      mediaType: img.mediaType,
-      data: img.buffer.toString("base64"),
-    });
   }
+  return { storedUrls };
+}
 
-  return { llmImages, publicUrls };
+function buildLlmImages(
+  downloads: DownloadedImage[],
+  storedUrls: (string | null)[],
+  count: number,
+): LlmImage[] {
+  const out: LlmImage[] = [];
+  for (let i = 0; i < Math.min(count, downloads.length); i++) {
+    const stored = storedUrls[i];
+    if (stored) {
+      out.push({ kind: "url", url: stored });
+    } else {
+      const img = downloads[i]!;
+      out.push({
+        kind: "base64",
+        mediaType: img.mediaType,
+        data: img.buffer.toString("base64"),
+      });
+    }
+  }
+  return out;
 }
 
 async function delay(ms: number): Promise<void> {
@@ -202,44 +335,55 @@ async function fetchSinglePost(
     })
     .catch(() => "");
 
-  const ogImage = await page
-    .$eval('meta[property="og:image"]', (el) => el.getAttribute("content") ?? "")
-    .catch(() => "");
-
   await page
     .waitForSelector('img[src*="cdninstagram"], img[src*="fbcdn"]', { timeout: 4000 })
     .catch(() => null);
 
-  const domImageUrls = await page
-    .$$eval('img[src*="cdninstagram"], img[src*="fbcdn"]', (imgs) =>
-      imgs
-        .map((img) => img.getAttribute("src"))
-        .filter(
-          (src): src is string =>
-            !!src &&
-            !src.includes("profile") &&
-            !src.includes("s150x150") &&
-            !src.includes("s320x320"),
-        ),
-    )
-    .catch(() => [] as string[]);
-
-  const discoveredUrls = Array.from(
-    new Set([...(ogImage ? [ogImage] : []), ...domImageUrls]),
-  );
+  const allDiscovered = await extractPostImageUrls(page);
+  const discoveredUrls = allDiscovered.slice(0, INSTAGRAM_CONFIG.maxImagesPerPost);
 
   const timeEl = await page.$("time[datetime]").catch(() => null);
   const timestamp = timeEl ? await timeEl.getAttribute("datetime") : null;
 
-  const downloads = await downloadImages(
-    context,
-    discoveredUrls.slice(0, LLM_IMAGES_PER_POST),
-  );
-  const { llmImages, publicUrls } = await materializeForLlm(handle, postUrl, downloads);
+  const videoUrl = await page
+    .$eval('meta[property="og:video"]', (el) => el.getAttribute("content") ?? "")
+    .catch(() => "");
 
-  const imageUrls = publicUrls.length > 0 ? publicUrls : discoveredUrls;
+  const downloads = await downloadImages(context, discoveredUrls);
+  const { storedUrls } = await persistImages(handle, postUrl, downloads);
+  const llmImages = buildLlmImages(downloads, storedUrls, LLM_IMAGES_PER_POST);
 
-  return { postUrl, caption, imageUrls, llmImages, timestamp, handle };
+  const imageUrls = downloads
+    .map((d, i) => ({
+      url: storedUrls[i] ?? discoveredUrls[i] ?? "",
+      mimeType: d.mediaType as string,
+    }))
+    .filter((m) => !!m.url);
+
+  const isReel = isReelUrl(postUrl) || Boolean(videoUrl);
+
+  const media: MediaItem[] = [];
+  if (videoUrl) {
+    media.push({
+      url: videoUrl,
+      type: "video",
+      mimeType: "video/mp4",
+      posterUrl: imageUrls[0]?.url ?? null,
+    });
+  }
+  for (const img of imageUrls) {
+    media.push({ url: img.url, type: "image", mimeType: img.mimeType });
+  }
+
+  return {
+    postUrl,
+    caption,
+    media,
+    llmImages,
+    isReel,
+    timestamp,
+    handle,
+  };
 }
 
 async function fetchPostsParallel(
@@ -266,9 +410,19 @@ async function fetchPostsParallel(
       try {
         const post = await fetchSinglePost(context, workerPage, postUrl, handle);
         results[i] = post;
-        bar?.tick(`${shortId} (${post.imageUrls.length} img, ${post.caption.length} chars)`);
+        bar?.tick(
+          `${shortId} (${post.media.length} media, ${post.caption.length} chars)`,
+        );
       } catch (err) {
-        results[i] = { postUrl, caption: "", imageUrls: [], llmImages: [], timestamp: null, handle };
+        results[i] = {
+          postUrl,
+          caption: "",
+          media: [],
+          llmImages: [],
+          isReel: isReelUrl(postUrl),
+          timestamp: null,
+          handle,
+        };
         bar?.tick(
           `${shortId} (failed: ${err instanceof Error ? err.message : "unknown"})`,
         );
@@ -366,8 +520,10 @@ async function scrapeProfilePosts(
 }
 
 export function createInstagramAdapter(
-  handles: string[],
+  dealers: DealerInfo[],
 ): ScraperAdapter {
+  const handles = dealers.map((d) => d.handle);
+  const dealerByHandle = new Map(dealers.map((d) => [d.handle, d]));
   const config: ScraperConfig = {
     name: INSTAGRAM_CONFIG.name,
     baseUrl: INSTAGRAM_CONFIG.baseUrl,
@@ -450,6 +606,7 @@ export function createInstagramAdapter(
                   caption: p.caption,
                   images: p.llmImages,
                 })),
+                { handle },
               );
               console.log(
                 `[instagram] @${handle}: LLM batch returned in ${Date.now() - llmStart}ms`,
@@ -468,6 +625,7 @@ export function createInstagramAdapter(
               continue;
             }
 
+            const dealer = dealerByHandle.get(handle);
             posts.forEach((post, i) => {
               const carData = batchResults[i];
               if (!carData) return;
@@ -475,32 +633,38 @@ export function createInstagramAdapter(
                 !carData.isCarListing ||
                 !carData.make ||
                 !carData.model ||
-                !carData.year ||
-                !carData.price
+                !carData.year
               ) {
                 return;
               }
 
+              const saleStatus = carData.isSold ? "sold" : "available";
               listings.push({
                 make: carData.make,
                 model: carData.model,
                 variant: carData.variant ?? undefined,
                 year: carData.year,
-                price: carData.price,
+                price: carData.price ?? null,
+                listingStatus:
+                  carData.price != null ? "priced" : "price_on_request",
+                saleStatus,
+                soldAt: carData.isSold ? new Date() : null,
                 kmDriven: carData.kmDriven ?? undefined,
                 fuelType: carData.fuelType ?? undefined,
                 transmission: carData.transmission ?? undefined,
                 ownerCount: carData.ownerCount ?? undefined,
                 color: carData.color ?? undefined,
                 bodyType: carData.bodyType ?? undefined,
-                city: INSTAGRAM_CONFIG.city,
+                city: dealer?.city ?? INSTAGRAM_CONFIG.city,
                 sourcePlatform: "instagram",
                 sourceUrl: post.postUrl,
                 sourceListingId: post.postUrl.split("/p/")[1]?.replace("/", ""),
-                sellerName: `@${post.handle}`,
+                sellerName: dealer?.displayName ?? `@${post.handle}`,
                 sellerPhone: carData.sellerPhone ?? undefined,
                 sellerType: "dealer",
-                photos: post.imageUrls,
+                dealerSourceId: dealer?.dealerSourceId,
+                garageId: dealer?.garageId,
+                media: post.media,
                 description: post.caption || undefined,
                 listedAt: post.timestamp ? new Date(post.timestamp) : undefined,
               });
@@ -513,8 +677,7 @@ export function createInstagramAdapter(
                 carData?.isCarListing &&
                   carData.make &&
                   carData.model &&
-                  carData.year &&
-                  carData.price,
+                  carData.year,
               );
               return {
                 postUrl: post.postUrl,

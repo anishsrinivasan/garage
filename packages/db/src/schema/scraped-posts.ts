@@ -16,6 +16,8 @@ export const scrapedPosts = pgTable(
     postUrl: text("post_url").notNull(),
     handle: text("handle"),
     isCarListing: boolean("is_car_listing").notNull().default(false),
+    isReel: boolean("is_reel").notNull().default(false),
+    skipReason: text("skip_reason"),
     lastCheckedAt: timestamp("last_checked_at").notNull().defaultNow(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },

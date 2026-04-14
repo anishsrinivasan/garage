@@ -266,7 +266,7 @@ function normalizeListing(raw: RawCardekhoListing): NormalizedListing | null {
     sourcePlatform: "cardekho",
     sourceUrl: raw.sourceUrl,
     sourceListingId: raw.sourceUrl.match(/\/used-car-details\/[^/]*?-(\d+)\.htm/)?.[1],
-    photos: raw.photos,
+    media: raw.photos.map((url) => ({ url, type: "image" as const })),
   };
 }
 
