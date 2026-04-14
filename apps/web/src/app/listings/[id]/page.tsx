@@ -26,6 +26,7 @@ import {
   capitalize,
 } from "@/app/lib/format";
 import { SourceBadge } from "@/app/components/source-badge";
+import { BookmarkButton } from "@/app/components/bookmark-button";
 
 export async function generateMetadata({
   params,
@@ -121,6 +122,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
             Sold
           </span>
         )}
+        <BookmarkButton listingId={listing.id} size="md" />
       </div>
 
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-white/5 pb-6">

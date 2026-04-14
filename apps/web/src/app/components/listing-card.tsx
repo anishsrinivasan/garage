@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Fuel, Gauge, Settings2, MapPin, ImageOff, Play } from "lucide-react";
 import { formatPrice, formatKm, capitalize } from "@/app/lib/format";
 import { SourceBadge } from "./source-badge";
+import { BookmarkButton } from "./bookmark-button";
 
 type MediaItem = {
   url: string;
@@ -62,6 +63,10 @@ export function ListingCard({ listing }: { listing: Listing }) {
             <span className="text-xs">No preview</span>
           </div>
         )}
+
+        <div className="absolute right-3 top-3 z-10 transition-opacity duration-200 [&:has([data-bookmarked])]:opacity-100 group-hover:opacity-100 opacity-0">
+          <BookmarkButton listingId={listing.id} />
+        </div>
 
         <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
           <SourceBadge platform={listing.sourcePlatform} />

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
 import { Gauge, Zap } from "lucide-react";
+import { SavedNavLink } from "@/app/components/saved-nav-link";
 import "./globals.css";
 
 const sans = Inter({
@@ -131,6 +132,7 @@ export default function RootLayout({
               >
                 Garages
               </Link>
+              <SavedNavLink />
               <span
                 aria-disabled
                 title="Coming soon"

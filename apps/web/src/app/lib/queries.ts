@@ -181,6 +181,16 @@ export async function getListingById(id: string) {
   return listing ?? null;
 }
 
+export async function getListingsByIds(ids: string[]) {
+  if (ids.length === 0) return [];
+  const results = await db
+    .select()
+    .from(carListings)
+    .where(sql`${carListings.id} = ANY(${ids})`);
+  const order = new Map(ids.map((id, i) => [id, i]));
+  return results.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+}
+
 export async function getFilterOptions() {
   const [cities, fuelTypes, transmissions, bodyTypes, platforms] =
     await Promise.all([
