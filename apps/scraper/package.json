@@ -12,14 +12,18 @@
     "scrape:olx": "bun run src/index.ts --source olx"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.69",
+    "@ai-sdk/google": "^3.0.63",
     "@anthropic-ai/sdk": "^0.39.0",
     "@aws-sdk/client-s3": "^3.1030.0",
     "@preowned-cars/db": "workspace:*",
     "@preowned-cars/shared": "workspace:*",
+    "ai": "^6.0.159",
     "cheerio": "^1.0.0",
     "drizzle-orm": "^0.39.0",
     "playwright": "^1.50.0",
-    "postgres": "^3.4.0"
+    "postgres": "^3.4.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "typescript": "^5.7.0"

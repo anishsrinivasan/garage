@@ -1,54 +1,8 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { z } from "zod";
+import type { ImagePart, TextPart } from "@ai-sdk/provider-utils";
+import { generateStructured } from "../ai/core";
 
-const anthropic = new Anthropic();
-
-const MIN_GAP_MS = 7000;
-const MAX_RETRIES = 4;
-const MAX_POSTS_PER_REQUEST = 6;
-let nextAvailableAt = 0;
-
-async function waitForSlot(): Promise<void> {
-  const now = Date.now();
-  if (now < nextAvailableAt) {
-    await new Promise((r) => setTimeout(r, nextAvailableAt - now));
-  }
-  nextAvailableAt = Math.max(Date.now(), nextAvailableAt) + MIN_GAP_MS;
-}
-
-function parseRetryDelayMs(err: unknown): number | null {
-  const e = err as { status?: number; headers?: Record<string, string> };
-  if (e?.status !== 429) return null;
-  const retryAfter = e.headers?.["retry-after"];
-  if (retryAfter) {
-    const secs = Number(retryAfter);
-    if (!Number.isNaN(secs) && secs > 0) return Math.ceil(secs * 1000);
-  }
-  return null;
-}
-
-async function callWithRetry<T>(fn: () => Promise<T>): Promise<T> {
-  let attempt = 0;
-  let lastErr: unknown;
-  while (attempt < MAX_RETRIES) {
-    await waitForSlot();
-    try {
-      return await fn();
-    } catch (err) {
-      lastErr = err;
-      const is429 = (err as { status?: number })?.status === 429;
-      if (!is429) throw err;
-      attempt++;
-      const hintedDelay = parseRetryDelayMs(err);
-      const backoff =
-        hintedDelay ?? Math.min(60000, 5000 * 2 ** (attempt - 1));
-      console.warn(
-        `[instagram-llm] rate limited (429), retry ${attempt}/${MAX_RETRIES} in ${backoff}ms`,
-      );
-      nextAvailableAt = Date.now() + backoff;
-    }
-  }
-  throw lastErr;
-}
+type UserPart = TextPart | ImagePart;
 
 export type ParsedCarData = {
   make: string | null;
@@ -80,6 +34,8 @@ export type BatchPostInput = {
   images: LlmImage[];
 };
 
+const MAX_POSTS_PER_REQUEST = 6;
+
 const EMPTY: ParsedCarData = {
   make: null,
   model: null,
@@ -96,7 +52,42 @@ const EMPTY: ParsedCarData = {
   isCarListing: false,
 };
 
-const BATCH_EXTRACTION_PROMPT = `You are an expert at extracting structured car listing data from Indian Instagram dealer posts.
+const PostResultSchema = z.object({
+  index: z.number().int().positive(),
+  make: z.string().nullable(),
+  model: z.string().nullable(),
+  variant: z.string().nullable(),
+  year: z.number().int().nullable(),
+  price: z.number().nullable(),
+  kmDriven: z.number().int().nullable(),
+  fuelType: z
+    .enum(["petrol", "diesel", "cng", "electric", "hybrid"])
+    .nullable(),
+  transmission: z.enum(["manual", "automatic"]).nullable(),
+  ownerCount: z.number().int().nullable(),
+  color: z.string().nullable(),
+  bodyType: z
+    .enum([
+      "sedan",
+      "suv",
+      "hatchback",
+      "muv",
+      "coupe",
+      "convertible",
+      "pickup",
+      "van",
+      "wagon",
+    ])
+    .nullable(),
+  sellerPhone: z.string().nullable(),
+  isCarListing: z.boolean(),
+});
+
+const BatchSchema = z.object({
+  posts: z.array(PostResultSchema),
+});
+
+const SYSTEM_PROMPT = `You are an expert at extracting structured car listing data from Indian Instagram dealer posts.
 
 You will be given MULTIPLE posts from a single dealer, numbered starting at 1. For each post, analyze its caption and any images that follow it, and extract car details.
 
@@ -104,65 +95,39 @@ Rules:
 - Price is in INR. Convert lakhs notation: "4.5L" or "4.5 lakhs" = 450000
 - Year is 4 digits (e.g., 2019)
 - kmDriven is kilometers (e.g., "45k km" = 45000)
-- fuelType: one of "petrol", "diesel", "cng", "electric", "hybrid"
-- transmission: one of "manual", "automatic"
-- bodyType: one of "sedan", "suv", "hatchback", "muv", "coupe", "convertible", "pickup", "van", "wagon"
-- If a post is NOT about selling a specific preowned car (reel, meme, ad, generic content), set isCarListing=false
+- If a post is NOT about selling a specific preowned car (reel, meme, ad, generic content), set isCarListing=false and leave car fields null
 - Extract phone numbers if visible in caption or image overlays
 - Use standard make/model names ("Maruti Suzuki" not "Maruti", "Hyundai Creta" not "creta")
 
-Return ONLY a valid JSON object of the form:
-{ "posts": [ { "index": 1, "make": ..., "model": ..., ..., "isCarListing": ... }, { "index": 2, ... }, ... ] }
+Return one entry per input post, with "index" matching the 1-based post number.`;
 
-Include one entry per input post, with "index" matching the post number you were given. The "posts" array must have the same length as the number of input posts.`;
-
-function parseBatchResponse(text: string, count: number): ParsedCarData[] {
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("No JSON found in Claude batch response");
-  const parsed = JSON.parse(jsonMatch[0]) as {
-    posts?: Array<ParsedCarData & { index?: number }>;
-  };
-  const arr = parsed.posts ?? [];
-  const results: ParsedCarData[] = Array.from({ length: count }, () => ({ ...EMPTY }));
-  for (const entry of arr) {
-    if (typeof entry.index !== "number") continue;
-    const i = entry.index - 1;
-    if (i < 0 || i >= count) continue;
-    const { index: _idx, ...rest } = entry;
-    results[i] = { ...EMPTY, ...rest };
+function imageToPart(img: LlmImage): ImagePart {
+  if (img.kind === "url") {
+    return { type: "image", image: new URL(img.url) };
   }
-  return results;
+  return {
+    type: "image",
+    image: img.data,
+    mediaType: img.mediaType,
+  };
 }
 
 async function extractChunk(posts: BatchPostInput[]): Promise<ParsedCarData[]> {
   if (posts.length === 0) return [];
 
-  const content: Anthropic.MessageCreateParams["messages"][0]["content"] = [];
+  const content: UserPart[] = [];
   let hasAnyContent = false;
 
   posts.forEach((post, i) => {
     const n = i + 1;
-    const captionText = post.caption
-      ? `Post ${n} caption:\n${post.caption}`
-      : `Post ${n}: (no caption)`;
-    content.push({ type: "text", text: captionText });
-
+    content.push({
+      type: "text",
+      text: post.caption
+        ? `Post ${n} caption:\n${post.caption}`
+        : `Post ${n}: (no caption)`,
+    });
     for (const img of post.images) {
-      if (img.kind === "url") {
-        content.push({
-          type: "image",
-          source: { type: "url", url: img.url },
-        });
-      } else {
-        content.push({
-          type: "image",
-          source: {
-            type: "base64",
-            media_type: img.mediaType,
-            data: img.data,
-          },
-        });
-      }
+      content.push(imageToPart(img));
       hasAnyContent = true;
     }
     if (post.caption) hasAnyContent = true;
@@ -172,21 +137,24 @@ async function extractChunk(posts: BatchPostInput[]): Promise<ParsedCarData[]> {
     return posts.map(() => ({ ...EMPTY }));
   }
 
-  const response = await callWithRetry(() =>
-    anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 4096,
-      system: BATCH_EXTRACTION_PROMPT,
-      messages: [{ role: "user", content }],
-    }),
+  const parsed = await generateStructured({
+    schema: BatchSchema,
+    schemaName: "InstagramPostCarListings",
+    system: SYSTEM_PROMPT,
+    messages: [{ role: "user", content }],
+  });
+
+  const results: ParsedCarData[] = Array.from(
+    { length: posts.length },
+    () => ({ ...EMPTY }),
   );
-
-  const textBlock = response.content.find((b) => b.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    throw new Error("No text response from Claude");
+  for (const entry of parsed.posts) {
+    const i = entry.index - 1;
+    if (i < 0 || i >= posts.length) continue;
+    const { index: _ignored, ...rest } = entry;
+    results[i] = { ...EMPTY, ...rest };
   }
-
-  return parseBatchResponse(textBlock.text, posts.length);
+  return results;
 }
 
 export async function extractCarDataForPostsBatch(

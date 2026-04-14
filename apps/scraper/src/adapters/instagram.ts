@@ -1,8 +1,8 @@
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
 import { existsSync } from "fs";
 import { resolve } from "path";
-import { and, eq, gte, inArray } from "drizzle-orm";
-import { db, carListings } from "@preowned-cars/db";
+import { and, eq, gte, inArray, sql } from "drizzle-orm";
+import { db, scrapedPosts } from "@preowned-cars/db";
 import type {
   ScraperAdapter,
   ScraperConfig,
@@ -21,16 +21,41 @@ async function filterRecentlyProcessedUrls(urls: string[]): Promise<Set<string>>
     Date.now() - INSTAGRAM_CONFIG.recheckAfterHours * 60 * 60 * 1000,
   );
   const rows = await db
-    .select({ sourceUrl: carListings.sourceUrl })
-    .from(carListings)
+    .select({ postUrl: scrapedPosts.postUrl })
+    .from(scrapedPosts)
     .where(
       and(
-        eq(carListings.sourcePlatform, "instagram"),
-        inArray(carListings.sourceUrl, urls),
-        gte(carListings.updatedAt, cutoff),
+        eq(scrapedPosts.platform, "instagram"),
+        inArray(scrapedPosts.postUrl, urls),
+        gte(scrapedPosts.lastCheckedAt, cutoff),
       ),
     );
-  return new Set(rows.map((r) => r.sourceUrl));
+  return new Set(rows.map((r) => r.postUrl));
+}
+
+async function recordScrapedPosts(
+  entries: Array<{ postUrl: string; handle: string; isCarListing: boolean }>,
+): Promise<void> {
+  if (entries.length === 0) return;
+  const now = new Date();
+  await db
+    .insert(scrapedPosts)
+    .values(
+      entries.map((e) => ({
+        platform: "instagram",
+        postUrl: e.postUrl,
+        handle: e.handle,
+        isCarListing: e.isCarListing,
+        lastCheckedAt: now,
+      })),
+    )
+    .onConflictDoUpdate({
+      target: [scrapedPosts.platform, scrapedPosts.postUrl],
+      set: {
+        lastCheckedAt: now,
+        isCarListing: sql`excluded.is_car_listing`,
+      },
+    });
 }
 
 const SESSION_STATE_PATH = resolve(
@@ -414,7 +439,7 @@ export function createInstagramAdapter(
             }
 
             console.log(
-              `[instagram] @${handle}: sending batch of ${posts.length} post(s) to Claude`,
+              `[instagram] @${handle}: sending batch of ${posts.length} post(s) to LLM`,
             );
             const llmStart = Date.now();
             let batchResults;
@@ -427,11 +452,11 @@ export function createInstagramAdapter(
                 })),
               );
               console.log(
-                `[instagram] @${handle}: Claude batch returned in ${Date.now() - llmStart}ms`,
+                `[instagram] @${handle}: LLM batch returned in ${Date.now() - llmStart}ms`,
               );
             } catch (err) {
               console.warn(
-                `[instagram] @${handle}: Claude batch failed after ${Date.now() - llmStart}ms: ${err instanceof Error ? err.message : String(err)}`,
+                `[instagram] @${handle}: LLM batch failed after ${Date.now() - llmStart}ms: ${err instanceof Error ? err.message : String(err)}`,
               );
               errors.push({
                 url: `${INSTAGRAM_CONFIG.baseUrl}/${handle}/`,
@@ -481,6 +506,30 @@ export function createInstagramAdapter(
               });
               handleListings++;
             });
+
+            const scrapedRecords = posts.map((post, i) => {
+              const carData = batchResults[i];
+              const isCar = Boolean(
+                carData?.isCarListing &&
+                  carData.make &&
+                  carData.model &&
+                  carData.year &&
+                  carData.price,
+              );
+              return {
+                postUrl: post.postUrl,
+                handle: post.handle,
+                isCarListing: isCar,
+              };
+            });
+            try {
+              await recordScrapedPosts(scrapedRecords);
+            } catch (err) {
+              console.warn(
+                `[instagram] @${handle}: failed to record scraped_posts: ${err instanceof Error ? err.message : String(err)}`,
+              );
+            }
+
             console.log(
               `[instagram] @${handle}: ${handleListings}/${posts.length} post(s) extracted as car listings (${Date.now() - handleStart}ms)`,
             );
