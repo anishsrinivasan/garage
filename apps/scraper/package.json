@@ -8,7 +8,8 @@
     "scrape": "bun run src/index.ts",
     "scrape:instagram": "bun run src/index.ts --source instagram",
     "scrape:cars24": "bun run src/index.ts --source cars24",
-    "scrape:cardekho": "bun run src/index.ts --source cardekho"
+    "scrape:cardekho": "bun run src/index.ts --source cardekho",
+    "scrape:olx": "bun run src/index.ts --source olx"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
