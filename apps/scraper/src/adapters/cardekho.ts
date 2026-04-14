@@ -265,6 +265,7 @@ function normalizeListing(raw: RawCardekhoListing): NormalizedListing | null {
     city: CARDEKHO_CONFIG.city,
     sourcePlatform: "cardekho",
     sourceUrl: raw.sourceUrl,
+    sourceListingId: raw.sourceUrl.match(/\/used-car-details\/[^/]*?-(\d+)\.htm/)?.[1],
     photos: raw.photos,
   };
 }

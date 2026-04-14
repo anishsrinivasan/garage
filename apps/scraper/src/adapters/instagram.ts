@@ -1,4 +1,6 @@
 import { chromium, type Browser, type Page } from "playwright";
+import { existsSync } from "fs";
+import { resolve } from "path";
 import type {
   ScraperAdapter,
   ScraperConfig,
@@ -8,6 +10,14 @@ import type {
 } from "@preowned-cars/shared";
 import { INSTAGRAM_CONFIG } from "./instagram-config";
 import { extractCarDataFromPost } from "./instagram-llm";
+
+const SESSION_STATE_PATH = resolve(
+  process.cwd(),
+  "apps",
+  "scraper",
+  ".session",
+  "storage-state.json",
+);
 
 type RawPost = {
   postUrl: string;
@@ -124,6 +134,13 @@ export function createInstagramAdapter(
 
       let browser: Browser | null = null;
       try {
+        const hasSession = existsSync(SESSION_STATE_PATH);
+        if (!hasSession) {
+          console.warn(
+            "[instagram] No session state found — run instagram-login.ts first. Scraping without auth may return 0 results.",
+          );
+        }
+
         browser = await chromium.launch({
           headless: true,
           args: [
@@ -137,6 +154,7 @@ export function createInstagramAdapter(
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
           viewport: { width: 1280, height: 720 },
           locale: "en-IN",
+          ...(hasSession ? { storageState: SESSION_STATE_PATH } : {}),
         });
 
         const page = await context.newPage();

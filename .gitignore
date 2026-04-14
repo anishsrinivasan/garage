@@ -5,3 +5,6 @@ dist/
 .turbo/
 *.tsbuildinfo
 bun.lockb
+apps/scraper/.session/*
+apps/scraper/screenshots/*
+.next

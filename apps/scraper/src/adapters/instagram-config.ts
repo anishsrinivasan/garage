@@ -8,3 +8,11 @@ export const INSTAGRAM_CONFIG = {
   scrollDelayMs: 2000,
   navigationTimeoutMs: 30000,
 } as const;
+
+export const INSTAGRAM_DEALER_HANDLES: string[] = [
+  "chennai_preowned_cars",
+  "chennai_used_cars_hub",
+  "chennaiusedcardealers",
+  "premiumcars_chennai",
+  "motormartchennai",
+];
