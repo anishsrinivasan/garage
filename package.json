@@ -1,6 +1,7 @@
 {
   "name": "preowned-cars",
   "private": true,
+  "packageManager": "bun@1.2.22",
   "workspaces": [
     "apps/*",
     "packages/*"
