@@ -5,6 +5,7 @@ import {
   gte,
   lte,
   ilike,
+  inArray,
   or,
   asc,
   desc,
@@ -186,9 +187,10 @@ export async function getListingsByIds(ids: string[]) {
   const results = await db
     .select()
     .from(carListings)
-    .where(sql`${carListings.id} = ANY(${ids})`);
-  const order = new Map(ids.map((id, i) => [id, i]));
-  return results.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+    .where(inArray(carListings.id, ids));
+  // Preserve input order (bookmarks are usually sorted newest-first upstream).
+  const rank = new Map(ids.map((id, i) => [id, i]));
+  return results.sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
 }
 
 export async function getFilterOptions() {
