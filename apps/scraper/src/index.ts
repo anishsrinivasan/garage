@@ -46,7 +46,7 @@ async function main() {
   }
 
   if (source === "olx" || source === "all") {
-    adapters.push(createOlxAdapter());
+    // adapters.push(createOlxAdapter());
   }
 
   if (adapters.length === 0) {

@@ -8,6 +8,8 @@ export const INSTAGRAM_CONFIG = {
   scrollDelayMs: 2000,
   navigationTimeoutMs: 30000,
   recheckAfterHours: 48,
+  postFetchConcurrency: 4,
+  postFetchStaggerMs: 400,
 } as const;
 
 export const INSTAGRAM_DEALER_HANDLES: string[] = [
