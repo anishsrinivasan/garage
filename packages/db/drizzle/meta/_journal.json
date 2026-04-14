@@ -57,6 +57,13 @@
       "when": 1776902400000,
       "tag": "0007_media_and_reels",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1776988800000,
+      "tag": "0008_move_to_torque_schema",
+      "breakpoints": true
     }
   ]
 }

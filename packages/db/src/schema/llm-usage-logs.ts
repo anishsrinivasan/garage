@@ -1,5 +1,4 @@
 import {
-  pgTable,
   uuid,
   text,
   integer,
@@ -8,8 +7,9 @@ import {
   jsonb,
   index,
 } from "drizzle-orm/pg-core";
+import { torqueSchema } from "./_schema";
 
-export const llmUsageLogs = pgTable(
+export const llmUsageLogs = torqueSchema.table(
   "llm_usage_logs",
   {
     id: uuid("id").defaultRandom().primaryKey(),

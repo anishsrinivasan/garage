@@ -23,11 +23,17 @@ if (!process.env.DATABASE_URL) {
   }
 }
 
+// Migrations always need a session-mode connection (DDL doesn't survive
+// transaction-pooled sessions). DATABASE_DIRECT_URL takes precedence when set;
+// fall back to DATABASE_URL for local dev where they're often the same.
+const migrationUrl = process.env.DATABASE_DIRECT_URL ?? process.env.DATABASE_URL!;
+
 export default defineConfig({
   schema: resolve(__dirname, "src/schema/index.ts"),
   out: resolve(__dirname, "drizzle"),
   dialect: "postgresql",
+  schemaFilter: ["torque"],
   dbCredentials: {
-    url: process.env.DATABASE_URL!,
+    url: migrationUrl,
   },
 });

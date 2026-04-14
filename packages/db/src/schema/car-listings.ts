@@ -1,5 +1,4 @@
 import {
-  pgTable,
   uuid,
   text,
   integer,
@@ -10,8 +9,9 @@ import {
   uniqueIndex,
   index,
 } from "drizzle-orm/pg-core";
+import { torqueSchema } from "./_schema";
 
-export const carListings = pgTable(
+export const carListings = torqueSchema.table(
   "car_listings",
   {
     id: uuid("id").defaultRandom().primaryKey(),

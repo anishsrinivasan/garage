@@ -1,5 +1,4 @@
 import {
-  pgTable,
   uuid,
   text,
   boolean,
@@ -7,8 +6,9 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { torqueSchema } from "./_schema";
 
-export const scrapedPosts = pgTable(
+export const scrapedPosts = torqueSchema.table(
   "scraped_posts",
   {
     id: uuid("id").defaultRandom().primaryKey(),
