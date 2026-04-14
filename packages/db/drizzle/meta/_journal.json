@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1776117559767,
+      "tag": "0000_special_speed",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776376800000,
+      "tag": "0001_add_last_seen_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776470400000,
+      "tag": "0002_add_rejection_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1776556800000,
+      "tag": "0003_add_dealer_sources",
+      "breakpoints": true
+    }
+  ]
+}

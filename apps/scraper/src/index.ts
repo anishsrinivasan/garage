@@ -1,8 +1,23 @@
+import { eq, and } from "drizzle-orm";
+import { db, dealerSources } from "@preowned-cars/db";
 import { createInstagramAdapter } from "./adapters/instagram";
 import { createCars24Adapter } from "./adapters/cars24";
 import { createCardekhoAdapter } from "./adapters/cardekho";
 import { createOlxAdapter } from "./adapters/olx";
 import { runAdapter } from "./runner";
+
+async function fetchDealerHandles(platform: string): Promise<string[]> {
+  const rows = await db
+    .select({ handle: dealerSources.handle })
+    .from(dealerSources)
+    .where(
+      and(
+        eq(dealerSources.platform, platform),
+        eq(dealerSources.isActive, true),
+      ),
+    );
+  return rows.map((r) => r.handle);
+}
 
 const SOURCE_FLAG = "--source";
 
@@ -14,7 +29,12 @@ async function main() {
   const adapters = [];
 
   if (source === "instagram" || source === "all") {
-    adapters.push(createInstagramAdapter());
+    const handles = await fetchDealerHandles("instagram");
+    if (handles.length === 0) {
+      console.warn("[main] No active Instagram handles in dealer_sources table — skipping Instagram scraper");
+    } else {
+      adapters.push(createInstagramAdapter(handles));
+    }
   }
 
   if (source === "cars24" || source === "all") {

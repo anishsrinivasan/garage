@@ -170,7 +170,7 @@ async function testInstagramConfig() {
   // but we can validate the adapter configuration
   try {
     const { createInstagramAdapter } = await import("./adapters/instagram");
-    const adapter = createInstagramAdapter();
+    const adapter = createInstagramAdapter(["test_handle"]);
     assert("Config name is 'instagram'", adapter.name === "instagram");
     assert("Config city is 'Chennai'", adapter.config.city === "Chennai");
     assert("Config baseUrl set", adapter.config.baseUrl === "https://www.instagram.com");

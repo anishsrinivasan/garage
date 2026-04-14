@@ -6,7 +6,7 @@ import type {
   ScrapeError,
   NormalizedListing,
 } from "@preowned-cars/shared";
-import { INSTAGRAM_CONFIG, INSTAGRAM_DEALER_HANDLES } from "./instagram-config";
+import { INSTAGRAM_CONFIG } from "./instagram-config";
 import { extractCarDataFromPost } from "./instagram-llm";
 
 type RawPost = {
@@ -102,7 +102,7 @@ async function scrapeProfilePosts(
 }
 
 export function createInstagramAdapter(
-  handles: string[] = INSTAGRAM_DEALER_HANDLES
+  handles: string[],
 ): ScraperAdapter {
   const config: ScraperConfig = {
     name: INSTAGRAM_CONFIG.name,
