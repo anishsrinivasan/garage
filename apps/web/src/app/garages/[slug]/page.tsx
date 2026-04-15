@@ -79,7 +79,7 @@ export default async function GaragePage({ params }: PageProps) {
       <section className="surface relative mb-10 overflow-hidden rounded-2xl p-6 sm:p-8">
         <div className="pointer-events-none absolute -top-24 right-0 -z-10 h-[300px] w-[300px] rounded-full bg-accent/10 blur-[120px]" />
 
-        <div className="flex flex-wrap items-start gap-6">
+        <div className="flex flex-col gap-6 sm:flex-row sm:flex-wrap sm:items-start">
           <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] text-ink-200">
             {garage.logoUrl ? (
               /* eslint-disable-next-line @next/next/no-img-element */
@@ -153,7 +153,7 @@ export default async function GaragePage({ params }: PageProps) {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3 text-right">
+          <div className="w-fit rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3 text-left sm:ml-auto sm:text-right">
             <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-500">
               Active listings
             </p>
@@ -172,11 +172,11 @@ export default async function GaragePage({ params }: PageProps) {
               Scrape sources
             </h2>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             {sources.map((s) => (
               <div
                 key={s.id}
-                className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-1.5"
+                className="flex items-center gap-2 overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] px-3 py-1.5"
               >
                 <SourceBadge platform={s.platform} />
                 <span className="text-xs text-ink-300">@{s.handle}</span>
