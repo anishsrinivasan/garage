@@ -147,42 +147,69 @@ export default async function ListingDetailPage({ params }: PageProps) {
         </div>
       </div>
 
-      <div className="mb-8 grid gap-2 sm:grid-cols-3">
-        <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-white/5 bg-ink-900 sm:col-span-2 sm:aspect-auto sm:row-span-2">
-          {hero ? (
-            <MediaFrame item={hero} primary />
-          ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-2 text-ink-500">
-              <ImageOff className="h-10 w-10" strokeWidth={1.3} />
-              <span className="text-sm">No preview</span>
+      <div className="mb-8">
+        <div className="hidden gap-2 sm:grid sm:grid-cols-3">
+          <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-white/5 bg-ink-900 sm:col-span-2 sm:aspect-auto sm:row-span-2">
+            {hero ? (
+              <MediaFrame item={hero} primary />
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center gap-2 text-ink-500">
+                <ImageOff className="h-10 w-10" strokeWidth={1.3} />
+                <span className="text-sm">No preview</span>
+              </div>
+            )}
+          </div>
+          {thumbnails.map((item, i) => (
+            <div
+              key={i}
+              className="relative aspect-[4/3] overflow-hidden rounded-xl border border-white/5 bg-ink-900"
+            >
+              <MediaFrame item={item} />
+            </div>
+          ))}
+          {Array.from({ length: Math.max(0, 4 - thumbnails.length) }).map(
+            (_, i) => (
+              <div
+                key={`empty-${i}`}
+                className="relative aspect-[4/3] overflow-hidden rounded-xl border border-white/5 bg-white/[0.02]"
+              />
+            ),
+          )}
+        </div>
+
+        <div className="sm:hidden">
+          <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-white/5 bg-ink-900">
+            {hero ? (
+              <MediaFrame item={hero} primary />
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center gap-2 text-ink-500">
+                <ImageOff className="h-10 w-10" strokeWidth={1.3} />
+                <span className="text-sm">No preview</span>
+              </div>
+            )}
+          </div>
+          {thumbnails.length > 0 && (
+            <div className="-mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-2">
+              {thumbnails.map((item, i) => (
+                <div
+                  key={i}
+                  className="relative aspect-[4/3] w-28 shrink-0 overflow-hidden rounded-xl border border-white/5 bg-ink-900"
+                >
+                  <MediaFrame item={item} />
+                </div>
+              ))}
             </div>
           )}
         </div>
-        {thumbnails.map((item, i) => (
-          <div
-            key={i}
-            className="relative aspect-[4/3] overflow-hidden rounded-xl border border-white/5 bg-ink-900"
-          >
-            <MediaFrame item={item} />
-          </div>
-        ))}
-        {Array.from({ length: Math.max(0, 4 - thumbnails.length) }).map(
-          (_, i) => (
-            <div
-              key={`empty-${i}`}
-              className="relative hidden aspect-[4/3] overflow-hidden rounded-xl border border-white/5 bg-white/[0.02] sm:block"
-            />
-          ),
-        )}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="grid gap-6 md:grid-cols-[1fr_280px] lg:grid-cols-[1fr_320px]">
         <div className="space-y-6">
           <section className="surface rounded-2xl p-6">
             <h2 className="mb-5 font-display text-sm font-semibold uppercase tracking-[0.15em] text-ink-200">
               Specifications
             </h2>
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3">
+            <dl className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2 sm:gap-x-6 sm:gap-y-5 md:grid-cols-3">
               <Detail
                 icon={Gauge}
                 label="Km Driven"

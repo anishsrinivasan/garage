@@ -3,6 +3,7 @@ import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
 import { Gauge, Zap } from "lucide-react";
 import { SavedNavLink } from "@/app/components/saved-nav-link";
+import { MobileMenu } from "@/app/components/mobile-menu";
 import { FeedbackModal } from "@/app/components/feedback-modal";
 import "./globals.css";
 
@@ -90,6 +91,8 @@ export const viewport: Viewport = {
   colorScheme: "dark",
   width: "device-width",
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({
@@ -105,7 +108,7 @@ export default function RootLayout({
           <div className="absolute inset-0 grid-bg opacity-40 [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,black,transparent_70%)]" />
         </div>
 
-        <header className="sticky top-0 z-40 border-b border-white/5 bg-ink-950/70 backdrop-blur-xl">
+        <header className="relative sticky top-0 z-40 border-b border-white/5 bg-ink-950/70 backdrop-blur-xl">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-3.5 sm:px-6">
             <Link href="/" className="group flex items-center gap-2.5">
               <span className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-accent-gradient shadow-glow transition group-hover:scale-105">
@@ -154,6 +157,7 @@ export default function RootLayout({
                 Get alerts
                 <SoonPill />
               </span>
+              <MobileMenu />
             </div>
           </div>
         </header>

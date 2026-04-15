@@ -83,19 +83,9 @@ export default async function HomePage({ searchParams }: PageProps) {
       <div className="lg:flex lg:gap-8">
         <aside className="mb-6 shrink-0 lg:mb-0 lg:w-72">
           <MobileFilterToggle>
-            <div className="surface sticky top-[84px] rounded-xl p-5">
-              <div className="mb-5 flex items-center justify-between">
-                <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-ink-100">
-                  Filters
-                </h2>
-                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink-500">
-                  Refine
-                </span>
-              </div>
-              <Suspense>
-                <Filters options={filterOptions} />
-              </Suspense>
-            </div>
+            <Suspense>
+              <Filters options={filterOptions} />
+            </Suspense>
           </MobileFilterToggle>
         </aside>
 
