@@ -3,6 +3,7 @@ import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
 import { Gauge, Zap } from "lucide-react";
 import { SavedNavLink } from "@/app/components/saved-nav-link";
+import { FeedbackModal } from "@/app/components/feedback-modal";
 import "./globals.css";
 
 const sans = Inter({
@@ -158,6 +159,7 @@ export default function RootLayout({
         </header>
 
         <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">{children}</main>
+        <FeedbackModal />
 
         <footer className="mt-24 border-t border-white/5">
           <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-4 px-4 py-8 text-xs text-ink-500 sm:flex-row sm:items-center sm:px-6">
