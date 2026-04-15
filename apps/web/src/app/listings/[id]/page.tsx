@@ -27,6 +27,7 @@ import {
 } from "@/app/lib/format";
 import { SourceBadge } from "@/app/components/source-badge";
 import { BookmarkButton } from "@/app/components/bookmark-button";
+import { ReportListingModal } from "@/app/components/report-listing-modal";
 
 export async function generateMetadata({
   params,
@@ -286,6 +287,8 @@ export default async function ListingDetailPage({ params }: PageProps) {
               strokeWidth={2.5}
             />
           </a>
+
+          <ReportListingModal listingId={listing.id} />
         </aside>
       </div>
     </div>
