@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { MessageSquarePlus, X, Send, Star } from "lucide-react";
+import { useState, useEffect, useCallback, useTransition } from "react";
+import { MessageSquarePlus, X, Send, Star, Loader2 } from "lucide-react";
+import { submitFeedback } from "@/app/lib/feedback-action";
 
 const CATEGORIES = ["Bug", "Feature Request", "General Feedback", "Other"] as const;
 type Category = (typeof CATEGORIES)[number];
@@ -13,6 +14,8 @@ export function FeedbackModal() {
   const [hoverRating, setHoverRating] = useState(0);
   const [message, setMessage] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState(false);
+  const [pending, startTransition] = useTransition();
 
   const reset = useCallback(() => {
     setCategory("General Feedback");
@@ -20,6 +23,7 @@ export function FeedbackModal() {
     setHoverRating(0);
     setMessage("");
     setSubmitted(false);
+    setError(false);
   }, []);
 
   const close = useCallback(() => {
@@ -37,17 +41,17 @@ export function FeedbackModal() {
   }, [open, close]);
 
   const handleSubmit = () => {
-    if (!message.trim()) return;
-    const payload = { category, rating, message: message.trim() };
-    try {
-      const existing = JSON.parse(localStorage.getItem("torque-feedback") || "[]");
-      existing.push({ ...payload, timestamp: new Date().toISOString() });
-      localStorage.setItem("torque-feedback", JSON.stringify(existing));
-    } catch {
-      // storage full or unavailable
-    }
-    setSubmitted(true);
-    setTimeout(close, 1800);
+    if (!message.trim() || pending) return;
+    setError(false);
+    startTransition(async () => {
+      try {
+        await submitFeedback({ category, rating, message });
+        setSubmitted(true);
+        setTimeout(close, 1800);
+      } catch {
+        setError(true);
+      }
+    });
   };
 
   return (
@@ -161,6 +165,12 @@ export function FeedbackModal() {
                     />
                   </div>
 
+                  {error && (
+                    <p className="text-xs text-rose-400">
+                      Something went wrong. Please try again.
+                    </p>
+                  )}
+
                   <div className="flex items-center justify-end gap-2 pt-1">
                     <button type="button" onClick={close} className="btn-ghost">
                       Cancel
@@ -168,11 +178,15 @@ export function FeedbackModal() {
                     <button
                       type="button"
                       onClick={handleSubmit}
-                      disabled={!message.trim()}
+                      disabled={!message.trim() || pending}
                       className="btn-accent disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none"
                     >
-                      <Send className="h-3.5 w-3.5" strokeWidth={2.5} />
-                      Submit
+                      {pending ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} />
+                      ) : (
+                        <Send className="h-3.5 w-3.5" strokeWidth={2.5} />
+                      )}
+                      {pending ? "Submitting…" : "Submit"}
                     </button>
                   </div>
                 </div>

@@ -5,3 +5,4 @@ export * from "./scrape-runs";
 export * from "./scraped-posts";
 export * from "./llm-usage-logs";
 export * from "./garages";
+export * from "./feedback";
