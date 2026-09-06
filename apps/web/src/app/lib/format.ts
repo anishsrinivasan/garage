@@ -58,6 +58,23 @@ export function capitalize(s: string | null | undefined): string {
 }
 
 /**
+ * Enum values are stored lowercase. Plain capitalisation renders "suv" as "Suv"
+ * and "cng" as "Cng", so acronyms need a real label rather than a text
+ * transform. Anything not listed falls back to capitalisation.
+ */
+const ENUM_LABELS: Record<string, string> = {
+  cng: "CNG",
+  lpg: "LPG",
+  suv: "SUV",
+  muv: "MUV",
+};
+
+export function enumLabel(value: string | null | undefined): string {
+  if (!value) return "—";
+  return ENUM_LABELS[value.toLowerCase()] ?? capitalize(value);
+}
+
+/**
  * Alt text that describes the car rather than repeating the heading. The cards
  * previously shipped `alt="BMW X7"` and the detail gallery shipped `alt=""`.
  */

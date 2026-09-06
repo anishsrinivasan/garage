@@ -4,6 +4,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { Search, X, ChevronDown, Loader2 } from "lucide-react";
 import type { FilterOptions } from "@/app/lib/queries";
+import { enumLabel } from "@/app/lib/format";
 
 /** Keys that are navigation state, not user-chosen filters. */
 const NON_FILTER_KEYS = ["sortBy", "sortOrder", "page"];
@@ -103,7 +104,7 @@ export function Filters({ options }: { options: FilterOptions }) {
         paramKey="fuelType"
         options={options.fuelTypes.map((o) => ({
           value: o.value,
-          label: displayLabel(o.value),
+          label: enumLabel(o.value),
           count: o.count,
         }))}
         current={current("fuelType")}
@@ -114,7 +115,7 @@ export function Filters({ options }: { options: FilterOptions }) {
         paramKey="transmission"
         options={options.transmissions.map((o) => ({
           value: o.value,
-          label: displayLabel(o.value),
+          label: enumLabel(o.value),
           count: o.count,
         }))}
         current={current("transmission")}
@@ -125,7 +126,7 @@ export function Filters({ options }: { options: FilterOptions }) {
         paramKey="bodyType"
         options={options.bodyTypes.map((o) => ({
           value: o.value,
-          label: displayLabel(o.value),
+          label: enumLabel(o.value),
           count: o.count,
         }))}
         current={current("bodyType")}
@@ -235,21 +236,6 @@ export function Filters({ options }: { options: FilterOptions }) {
       )}
     </div>
   );
-}
-
-/**
- * Enum values are stored lowercase, and CSS `capitalize` turns "cng" into
- * "Cng". Acronyms need a real label rather than a text transform.
- */
-const DISPLAY_LABELS: Record<string, string> = {
-  cng: "CNG",
-  lpg: "LPG",
-  suv: "SUV",
-  muv: "MUV",
-};
-
-function displayLabel(value: string): string {
-  return DISPLAY_LABELS[value] ?? value;
 }
 
 function priceHint(range: { min: number; max: number }): string | null {

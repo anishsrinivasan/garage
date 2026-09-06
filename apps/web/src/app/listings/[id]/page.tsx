@@ -29,6 +29,7 @@ import {
   formatKm,
   formatDate,
   capitalize,
+  enumLabel,
   imageAlt,
   relativeAge,
   daysBetween,
@@ -58,8 +59,8 @@ export async function generateMetadata({
   const descriptionParts = [
     price ? `₹${price}` : "Price on request",
     listing.kmDriven != null ? formatKm(listing.kmDriven) : null,
-    listing.fuelType ? capitalize(listing.fuelType) : null,
-    listing.transmission ? capitalize(listing.transmission) : null,
+    listing.fuelType ? enumLabel(listing.fuelType) : null,
+    listing.transmission ? enumLabel(listing.transmission) : null,
     listing.city,
   ].filter(Boolean);
 
@@ -198,13 +199,13 @@ export default async function ListingDetailPage({ params }: PageProps) {
             </h2>
             <dl className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2 sm:gap-x-6 sm:gap-y-5 md:grid-cols-3">
               <Detail icon={Gauge} label="Km driven" value={formatKm(listing.kmDriven)} />
-              <Detail icon={Fuel} label="Fuel" value={capitalize(listing.fuelType)} />
+              <Detail icon={Fuel} label="Fuel" value={enumLabel(listing.fuelType)} />
               <Detail
                 icon={Settings2}
                 label="Transmission"
-                value={capitalize(listing.transmission)}
+                value={enumLabel(listing.transmission)}
               />
-              <Detail icon={Droplet} label="Body type" value={capitalize(listing.bodyType)} />
+              <Detail icon={Droplet} label="Body type" value={enumLabel(listing.bodyType)} />
               <Detail
                 icon={Users}
                 label="Owners"

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Fuel, Gauge, Settings2, MapPin, ImageOff, Play, Images } from "lucide-react";
-import { formatPrice, formatKm, capitalize, imageAlt } from "@/app/lib/format";
+import { formatPrice, formatKm, enumLabel, imageAlt } from "@/app/lib/format";
 import { pickHeroImage, hasVideo, imageCount, type MediaItem } from "@/app/lib/media";
 import { SourceBadge } from "./source-badge";
 import { BookmarkButton } from "./bookmark-button";
@@ -155,8 +155,8 @@ export function ListingCard({
 
         <div className="grid grid-cols-3 gap-2 border-t border-white/5 pt-3">
           <Spec icon={Gauge} value={formatKm(listing.kmDriven)} />
-          <Spec icon={Fuel} value={capitalize(listing.fuelType)} />
-          <Spec icon={Settings2} value={capitalize(listing.transmission)} />
+          <Spec icon={Fuel} value={enumLabel(listing.fuelType)} />
+          <Spec icon={Settings2} value={enumLabel(listing.transmission)} />
         </div>
 
         <div className="mt-3 flex items-center justify-between gap-2 text-[11px] text-ink-500">
