@@ -124,6 +124,18 @@ Two bugs were found *by* this verification and fixed:
 
 ---
 
+### Found and fixed while verifying
+
+| Problem | Fix |
+|---|---|
+| Age sweep retired 460 of 500 listings on its first real run | Only age out a listing if its source has successfully scraped since that listing was last confirmed |
+| Ranking over-corrected into a pure date sort | Bounded recency floor (0.35) + price-band multiplier |
+| `"BMW M340I 3.0L Petrol"` parsed as a ₹3 lakh price | Bare `L`/`k` suffixes now require a currency marker |
+| `parseIndianPrice("4500000")` returned null | Comma-grouped regex alternative used `*`, matching only the first three digits |
+| CarDekho media still empty after the first fix | `image` is an array of ImageObjects; `String(value)` produced `"[object Object]"` |
+| CarDekho fetched the same 20 cars twenty times per run | It paginates client-side; `maxPages` set to 1 |
+| `next build` failed without database credentials | DB client and better-auth instance now construct lazily |
+
 ## Not done / follow-ups
 
 - **`ffmpeg` is broken on this Mac** (`libjxl.0.11.dylib` missing from the
@@ -133,5 +145,9 @@ Two bugs were found *by* this verification and fixed:
 - The Instagram session at `apps/scraper/.session/storage-state.json` must be
   copied into the cron container's volume before the first scheduled run.
 - OLX adapter remains disabled (it was already commented out).
+- **CarDekho only yields 20 listings per run** because its pagination is
+  client-side. Going deeper needs its XHR endpoint or a headless browser. The
+  107 older CarDekho rows still have no photos until a run happens to touch
+  them again.
 - Keyset pagination — offset pagination is fine at 450 rows, not at 50k.
 - Saved searches and price-drop alerts.
