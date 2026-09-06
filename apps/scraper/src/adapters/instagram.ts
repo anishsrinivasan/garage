@@ -34,6 +34,7 @@ import {
   type ScorableImage,
 } from "./instagram-image-scoring";
 import { reconcilePrice, assessPrice, normalizeListingFields } from "@preowned-cars/shared";
+import { recordSourceRun } from "../source-health";
 import type { MediaSource } from "@preowned-cars/shared";
 
 async function filterRecentlyProcessedUrls(urls: string[]): Promise<Set<string>> {
@@ -640,6 +641,13 @@ export function createInstagramAdapter(
 
             if (posts.length === 0) {
               console.log(`[instagram] @${handle}: no new posts to process`);
+              // "empty" rather than "ok": nothing was wrong, but nothing was
+              // confirmed either, and a handle that stays empty for days is
+              // worth noticing on the Sources screen.
+              await recordSourceRun(
+                dealerByHandle.get(handle)?.dealerSourceId,
+                "empty",
+              );
               handleBar.tick(`@${handle}: 0 posts`);
               await delay(3000);
               continue;
@@ -671,6 +679,11 @@ export function createInstagramAdapter(
                 message: `Batch LLM extraction failed: ${err instanceof Error ? err.message : String(err)}`,
                 retryable: true,
               });
+              await recordSourceRun(
+                dealerByHandle.get(handle)?.dealerSourceId,
+                "failed",
+                `LLM extraction failed: ${err instanceof Error ? err.message : String(err)}`,
+              );
               handleBar.tick(`@${handle}: LLM failed`);
               await delay(3000);
               continue;
@@ -793,6 +806,10 @@ export function createInstagramAdapter(
             console.log(
               `[instagram] @${handle}: ${handleListings}/${posts.length} post(s) extracted as car listings (${Date.now() - handleStart}ms)`,
             );
+            await recordSourceRun(
+              dealer?.dealerSourceId,
+              handleListings > 0 ? "ok" : "empty",
+            );
             handleBar.tick(`@${handle}: ${handleListings} listings`);
           } catch (err) {
             console.error(
@@ -803,6 +820,11 @@ export function createInstagramAdapter(
               message: err instanceof Error ? err.message : String(err),
               retryable: true,
             });
+            await recordSourceRun(
+              dealerByHandle.get(handle)?.dealerSourceId,
+              "failed",
+              err instanceof Error ? err.message : String(err),
+            );
             handleBar.tick(`@${handle}: errored`);
           }
 

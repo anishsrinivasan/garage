@@ -7,6 +7,7 @@ import { createHash } from "crypto";
 import { validateListing } from "./utils/validation";
 import { delistUnseen, reactivate } from "./delist";
 import { rebuildDedupeClusters } from "./dedupe";
+import { findAggregatorSourceId, recordSourceRun } from "./source-health";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 5000;
@@ -244,6 +245,16 @@ export async function runAdapter(
 
       const { newCount, updatedCount } = await upsertListings(validListings);
 
+      // Instagram records per-handle status inside its own adapter, since one
+      // run covers many dealers. Marketplaces have a single aggregator source,
+      // so the runner records it here.
+      if (adapter.name !== "instagram") {
+        await recordSourceRun(
+          await findAggregatorSourceId(adapter.name),
+          validListings.length > 0 ? "ok" : "empty",
+        );
+      }
+
       // Anything this source used to carry but didn't produce this run has
       // most likely sold or been taken down. The sweep is coverage-guarded so a
       // degraded run can't wipe a healthy source.
@@ -313,6 +324,14 @@ export async function runAdapter(
       errorMessage: lastError?.message ?? "Unknown error",
     })
     .where(eq(scrapeRuns.id, run!.id));
+
+  if (adapter.name !== "instagram") {
+    await recordSourceRun(
+      await findAggregatorSourceId(adapter.name),
+      "failed",
+      lastError?.message ?? "Unknown error",
+    );
+  }
 
   console.error(`[runner] ${adapter.name}: all retries exhausted`);
 }

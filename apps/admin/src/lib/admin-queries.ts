@@ -260,6 +260,7 @@ export async function getAdminSources() {
       isActive: dealerSources.isActive,
       lastScrapedAt: dealerSources.lastScrapedAt,
       lastScrapeStatus: dealerSources.lastScrapeStatus,
+      lastScrapeError: dealerSources.lastScrapeError,
       garageId: garages.id,
       garageName: garages.name,
       garageSlug: garages.slug,

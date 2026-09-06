@@ -26,6 +26,9 @@ export default async function SourcesPage() {
                   <th className="pb-2 font-mono text-[10px] uppercase tracking-wider">Handle</th>
                   <th className="pb-2 font-mono text-[10px] uppercase tracking-wider">Garage</th>
                   <th className="pb-2 font-mono text-[10px] uppercase tracking-wider">Type</th>
+                  <th className="pb-2 font-mono text-[10px] uppercase tracking-wider">
+                    Last run
+                  </th>
                   <th className="pb-2 text-right font-mono text-[10px] uppercase tracking-wider">
                     Listings
                   </th>
@@ -45,6 +48,17 @@ export default async function SourcesPage() {
                       <Badge tone={source.platform === "instagram" ? "neutral" : "info"}>
                         {source.platform}
                       </Badge>
+                    </td>
+                    {/* Per-handle health. A single Instagram run covers fifteen
+                        dealers and reports one status, so a handle whose session
+                        expired or whose account went private is invisible at the
+                        run level — this is where it shows up. */}
+                    <td className="py-2">
+                      <SourceHealth
+                        status={source.lastScrapeStatus}
+                        at={source.lastScrapedAt}
+                        error={source.lastScrapeError}
+                      />
                     </td>
                     <td className="py-2 text-right font-mono text-ink-300">
                       {source.listingCount}
@@ -121,6 +135,34 @@ export default async function SourcesPage() {
         </Panel>
       </div>
     </>
+  );
+}
+
+function SourceHealth({
+  status,
+  at,
+  error,
+}: {
+  status: string | null;
+  at: Date | null;
+  error: string | null;
+}) {
+  if (!at || !status) {
+    return <span className="text-ink-600">never run</span>;
+  }
+  const tone = status === "ok" ? "good" : status === "empty" ? "warn" : "bad";
+  return (
+    <span className="flex flex-col gap-0.5">
+      <span className="flex items-center gap-1.5">
+        <Badge tone={tone}>{status}</Badge>
+        <span className="text-ink-500">{relativeAge(at)}</span>
+      </span>
+      {error && (
+        <span title={error} className="max-w-[16rem] truncate text-[10px] text-rose-300/80">
+          {error}
+        </span>
+      )}
+    </span>
   );
 }
 
