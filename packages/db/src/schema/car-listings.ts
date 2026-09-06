@@ -46,16 +46,34 @@ export const carListings = torqueSchema.table(
           type: "image" | "video";
           mimeType?: string | null;
           posterUrl?: string | null;
+          source?: string | null;
+          width?: number | null;
+          height?: number | null;
+          score?: number | null;
+          scoreReason?: string | null;
         }>
       >()
       .default([]),
     description: text("description"),
     listedAt: timestamp("listed_at"),
+    // scrapedAt was doing double duty as "first seen" and "last scraped", which
+    // made freshness impossible to reason about. It is kept for compatibility;
+    // firstSeenAt/lastSeenAt are the columns to use.
     scrapedAt: timestamp("scraped_at").notNull().defaultNow(),
+    firstSeenAt: timestamp("first_seen_at").notNull().defaultNow(),
+    lastSeenAt: timestamp("last_seen_at").notNull().defaultNow(),
+    delistedAt: timestamp("delisted_at"),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
     isActive: boolean("is_active").notNull().default(true),
+    /** Flagged by the price plausibility check; surfaced in the admin queue. */
+    needsReview: boolean("needs_review").notNull().default(false),
+    reviewReason: text("review_reason"),
+    /** Admin override that wins over media[0] when picking the card image. */
+    heroMediaUrl: text("hero_media_url"),
     contentHash: text("content_hash"),
     dedupClusterId: uuid("dedup_cluster_id"),
+    /** True for the row that represents its dedup cluster in the feed. */
+    isClusterHead: boolean("is_cluster_head").notNull().default(true),
   },
   (table) => ({
     uniqueSourceUrl: uniqueIndex("uq_source_url").on(
@@ -72,5 +90,16 @@ export const carListings = torqueSchema.table(
     idxGarageId: index("idx_car_listings_garage_id").on(table.garageId),
     idxListingStatus: index("idx_car_listings_status").on(table.listingStatus),
     idxSaleStatus: index("idx_car_listings_sale_status").on(table.saleStatus),
+    idxLastSeenAt: index("idx_car_listings_last_seen_at").on(table.lastSeenAt),
+    idxFirstSeenAt: index("idx_car_listings_first_seen_at").on(table.firstSeenAt),
+    idxListedAt: index("idx_car_listings_listed_at").on(table.listedAt),
+    idxNeedsReview: index("idx_car_listings_needs_review").on(table.needsReview),
+    idxDedupCluster: index("idx_car_listings_dedup_cluster").on(table.dedupClusterId),
+    // Covers the default feed predicate.
+    idxActiveFeed: index("idx_car_listings_active_feed").on(
+      table.isActive,
+      table.isClusterHead,
+      table.saleStatus,
+    ),
   })
 );

@@ -1,9 +1,13 @@
-export function parseIndianPrice(text: string): number | null {
-  const cleaned = text.replace(/[₹,\s]/g, "");
-  const lakhMatch = cleaned.match(/([\d.]+)\s*(?:lakh|lac)/i);
-  if (lakhMatch) return Math.round(parseFloat(lakhMatch[1]!) * 100000);
-  const croreMatch = cleaned.match(/([\d.]+)\s*(?:crore|cr)/i);
-  if (croreMatch) return Math.round(parseFloat(croreMatch[1]!) * 10000000);
-  const num = parseFloat(cleaned);
-  return isNaN(num) ? null : num;
-}
+/**
+ * Kept as a re-export so existing adapter imports keep working. The parsing
+ * itself moved to @preowned-cars/shared so the web app and the admin review
+ * queue can apply the exact same lakh/crore rules.
+ */
+export {
+  parseIndianPrice,
+  extractPriceCandidates,
+  reconcilePrice,
+  assessPrice,
+  LAKH,
+  CRORE,
+} from "@preowned-cars/shared";

@@ -19,5 +19,8 @@ export const scrapeRuns = torqueSchema.table("scrape_runs", {
   listingsRejected: integer("listings_rejected").default(0),
   rejectionReasons: text("rejection_reasons"),
   errorMessage: text("error_message"),
+  /** "cron" | "manual" | "cli" — so a failed nightly run is distinguishable. */
+  trigger: text("trigger").notNull().default("cli"),
+  listingsDelisted: integer("listings_delisted").default(0),
   metadata: jsonb("metadata"),
 });

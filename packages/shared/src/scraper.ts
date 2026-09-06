@@ -10,11 +10,31 @@ export type ListingStatus = "priced" | "price_on_request";
 
 export type SaleStatus = "available" | "sold" | "removed";
 
+/**
+ * Where a media item came from. Needed because Instagram reel "cover" images
+ * have a play triangle burned into the pixels and are usually a frame of the
+ * dealer talking rather than the car — so they must never win the hero slot
+ * when a real carousel photo or an extracted video frame is available.
+ */
+export type MediaSource =
+  | "carousel"
+  | "reel_cover"
+  | "reel_frame"
+  | "marketplace"
+  | "manual";
+
 export type MediaItem = {
   url: string;
   type: "image" | "video";
   mimeType?: string | null;
   posterUrl?: string | null;
+  source?: MediaSource | null;
+  width?: number | null;
+  height?: number | null;
+  /** 0-100 from the vision pass; higher means more car-forward. */
+  score?: number | null;
+  /** Why the scorer rated it as it did — kept for admin debugging. */
+  scoreReason?: string | null;
 };
 
 export type NormalizedListing = {
@@ -45,6 +65,9 @@ export type NormalizedListing = {
   media: MediaItem[];
   description?: string;
   listedAt?: Date;
+  /** Set when the price was corrected or flagged during extraction. */
+  needsReview?: boolean;
+  reviewReason?: string | null;
 };
 
 export type ScrapeResult = {

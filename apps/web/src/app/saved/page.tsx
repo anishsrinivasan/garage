@@ -59,7 +59,7 @@ export default function SavedPage() {
           {Array.from({ length: Math.min(count || 3, 6) }).map((_, i) => (
             <div
               key={i}
-              className="aspect-[4/3] rounded-2xl border border-white/[0.06] bg-ink-850/40"
+              className="aspect-[3/2] rounded-2xl border border-white/[0.06] bg-ink-850/40"
             />
           ))}
         </div>

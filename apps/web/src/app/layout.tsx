@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
-import { Gauge, Zap } from "lucide-react";
+import { Gauge } from "lucide-react";
 import { SavedNavLink } from "@/app/components/saved-nav-link";
 import { MobileMenu } from "@/app/components/mobile-menu";
 import { FeedbackModal } from "@/app/components/feedback-modal";
@@ -91,8 +91,9 @@ export const viewport: Viewport = {
   colorScheme: "dark",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // maximumScale/userScalable were pinned, which blocks pinch-zoom entirely —
+  // a WCAG 1.4.4 failure and painful on a site whose whole point is looking
+  // closely at photos.
 };
 
 export default function RootLayout({
@@ -137,26 +138,9 @@ export default function RootLayout({
                 Garages
               </Link>
               <SavedNavLink />
-              <span
-                aria-disabled
-                title="Coming soon"
-                className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-ink-500"
-              >
-                Insights
-                <SoonPill />
-              </span>
             </nav>
 
             <div className="flex items-center gap-2">
-              <span
-                aria-disabled
-                title="Coming soon"
-                className="hidden cursor-not-allowed items-center gap-1.5 rounded-lg border border-accent/20 bg-accent/5 px-3 py-1.5 text-xs font-semibold text-accent/80 md:inline-flex"
-              >
-                <Zap className="h-3.5 w-3.5" strokeWidth={2.5} />
-                Get alerts
-                <SoonPill />
-              </span>
               <MobileMenu />
             </div>
           </div>
@@ -169,7 +153,7 @@ export default function RootLayout({
           <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-4 px-4 py-8 text-xs text-ink-500 sm:flex-row sm:items-center sm:px-6">
             <div className="flex items-center gap-2">
               <span className="h-1.5 w-1.5 animate-pulse-glow rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-              <span>Live — data refreshed continuously from multiple sources</span>
+              <span>Listings verified against their source on every scrape</span>
             </div>
             <p>© {new Date().getFullYear()} Torque · Built for car people</p>
           </div>
@@ -179,10 +163,4 @@ export default function RootLayout({
   );
 }
 
-function SoonPill() {
-  return (
-    <span className="rounded border border-white/10 bg-white/5 px-1 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-ink-400">
-      Soon
-    </span>
-  );
-}
+

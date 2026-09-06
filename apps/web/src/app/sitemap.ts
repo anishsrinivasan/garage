@@ -1,15 +1,21 @@
 import type { MetadataRoute } from "next";
 import { getGarages } from "@/app/lib/garages";
+import { getSitemapListings } from "@/app/lib/queries";
 
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
+/**
+ * The sitemap previously listed only `/`, `/garages` and the garage pages —
+ * every one of the 500 listing detail pages, which are the actual indexable
+ * content, was missing.
+ */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
   const base: MetadataRoute.Sitemap = [
     { url: `${SITE_URL}/`, lastModified: now, changeFrequency: "hourly", priority: 1 },
     { url: `${SITE_URL}/garages`, lastModified: now, changeFrequency: "daily", priority: 0.8 },
   ];
+
   try {
     const garages = await getGarages();
     for (const g of garages) {
@@ -21,7 +27,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       });
     }
   } catch {
-    // If DB is unreachable at build time, return the static entries only.
+    // DB unreachable at build time — static entries only.
   }
+
+  try {
+    const listings = await getSitemapListings();
+    for (const listing of listings) {
+      base.push({
+        url: `${SITE_URL}/listings/${listing.id}`,
+        lastModified: listing.updatedAt,
+        changeFrequency: "weekly",
+        priority: 0.7,
+      });
+    }
+  } catch {
+    // Same — degrade to what we already have rather than failing the sitemap.
+  }
+
   return base;
 }

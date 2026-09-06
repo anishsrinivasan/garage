@@ -1,5 +1,5 @@
 import { db, garages, carListings, dealerSources } from "@preowned-cars/db";
-import { and, asc, count, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq, sql } from "drizzle-orm";
 
 export type GarageKind = "dealer" | "marketplace";
 
@@ -42,6 +42,7 @@ export async function getGarages(options?: {
       and(
         eq(carListings.garageId, garages.id),
         eq(carListings.isActive, true),
+        eq(carListings.isClusterHead, true),
       ),
     )
     .where(and(...conditions))
@@ -71,16 +72,45 @@ export async function getGarageSources(garageId: string) {
     .where(eq(dealerSources.garageId, garageId));
 }
 
+/**
+ * Uses the same feed rules as the home page: cluster heads only, ordered by
+ * recency rather than scrape order, and carrying the garage name so the cards
+ * render identically wherever they appear.
+ */
 export async function getListingsForGarage(garageId: string, limit = 48) {
   return db
-    .select()
+    .select({
+      id: carListings.id,
+      make: carListings.make,
+      model: carListings.model,
+      variant: carListings.variant,
+      year: carListings.year,
+      price: carListings.price,
+      listingStatus: carListings.listingStatus,
+      saleStatus: carListings.saleStatus,
+      kmDriven: carListings.kmDriven,
+      fuelType: carListings.fuelType,
+      transmission: carListings.transmission,
+      city: carListings.city,
+      sourcePlatform: carListings.sourcePlatform,
+      media: carListings.media,
+      heroMediaUrl: carListings.heroMediaUrl,
+      listedAt: carListings.listedAt,
+      firstSeenAt: carListings.firstSeenAt,
+      garageName: garages.name,
+      garageSlug: garages.slug,
+    })
     .from(carListings)
+    .innerJoin(garages, eq(garages.id, carListings.garageId))
     .where(
       and(
         eq(carListings.isActive, true),
+        eq(carListings.isClusterHead, true),
         eq(carListings.garageId, garageId),
       ),
     )
-    .orderBy(desc(carListings.scrapedAt))
+    .orderBy(
+      desc(sql`coalesce(${carListings.listedAt}, ${carListings.firstSeenAt})`),
+    )
     .limit(limit);
 }

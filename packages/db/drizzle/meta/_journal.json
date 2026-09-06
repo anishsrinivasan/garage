@@ -78,6 +78,13 @@
       "when": 1777161600000,
       "tag": "0010_add_listing_reports",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1788700000000,
+      "tag": "0011_freshness_review_auth",
+      "breakpoints": true
     }
   ]
 }

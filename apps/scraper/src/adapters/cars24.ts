@@ -150,7 +150,14 @@ function parseCarFromJsonLd(
     sourceUrl: pageUrl,
     sourceListingId: idMatch?.[1],
     sellerType: "dealer",
-    media: images.map((url) => ({ url, type: "image" as const })),
+    media: images.map((url) => ({
+      url,
+      type: "image" as const,
+      source: "marketplace" as const,
+    })),
+    // Cars24 JSON-LD carries no publish date. Left null so the runner dates the
+    // listing from firstSeenAt rather than leaving it out of date-aware sorts.
+    listedAt: undefined,
   };
 }
 

@@ -1,7 +1,6 @@
 import type { MediaItem, NormalizedListing } from "@preowned-cars/shared";
+import { MIN_PRICE, MAX_PRICE } from "@preowned-cars/shared";
 
-const MIN_PRICE = 10_000;
-const MAX_PRICE = 100_000_000;
 const MIN_YEAR = 1990;
 const MAX_YEAR = new Date().getFullYear() + 1;
 const MAX_KM = 2_000_000;
@@ -44,13 +43,17 @@ export function validateListing(listing: NormalizedListing): ValidationResult {
   }
 
   const inputMedia = listing.media ?? [];
-  const sanitizedMedia = inputMedia.filter(
-    (m) =>
-      m &&
-      typeof m.url === "string" &&
-      URL_REGEX.test(m.url) &&
-      (m.type === "image" || m.type === "video"),
-  );
+  const seenUrls = new Set<string>();
+  const sanitizedMedia = inputMedia.filter((m) => {
+    if (!m || typeof m.url !== "string" || !URL_REGEX.test(m.url)) return false;
+    if (m.type !== "image" && m.type !== "video") return false;
+    // The same photo arriving twice at different CDN widths used to occupy two
+    // gallery slots.
+    const key = m.url.split("?")[0]!;
+    if (seenUrls.has(key)) return false;
+    seenUrls.add(key);
+    return true;
+  });
   const invalidCount = inputMedia.length - sanitizedMedia.length;
   if (invalidCount > 0) {
     errors.push(`${invalidCount} invalid media item(s) filtered`);

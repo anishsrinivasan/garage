@@ -27,6 +27,14 @@ import { INSTAGRAM_CONFIG } from "./instagram-config";
 import { extractCarDataForPostsBatch, type LlmImage } from "./instagram-llm";
 import { ProgressBar } from "../utils/progress";
 import { isR2Enabled, uploadToR2 } from "../utils/r2";
+import { extractPostMedia, extractShortcode } from "./instagram-media";
+import { extractFrames } from "../utils/video-frames";
+import {
+  scoreImages,
+  type ScorableImage,
+} from "./instagram-image-scoring";
+import { reconcilePrice, assessPrice, normalizeListingFields } from "@preowned-cars/shared";
+import type { MediaSource } from "@preowned-cars/shared";
 
 async function filterRecentlyProcessedUrls(urls: string[]): Promise<Set<string>> {
   if (urls.length === 0) return new Set();
@@ -89,17 +97,38 @@ const SESSION_STATE_PATH = resolve(
   "storage-state.json",
 );
 
-type MediaType = "image/jpeg" | "image/png" | "image/webp" | "image/gif";
+type MediaType =
+  | "image/jpeg"
+  | "image/png"
+  | "image/webp"
+  | "image/gif";
 
-type DownloadedImage = {
+type Downloaded = {
   buffer: Buffer;
-  mediaType: MediaType;
+  contentType: string;
+};
+
+/**
+ * A single piece of media belonging to one post, already persisted to R2 where
+ * possible, carrying enough context for the vision scorer to rank it.
+ */
+type MediaCandidate = {
+  key: string;
+  url: string;
+  type: "image" | "video";
+  mimeType: string;
+  source: MediaSource;
+  width: number | null;
+  height: number | null;
+  posterUrl: string | null;
+  /** Present for images only — what we hand the scorer. */
+  scorePayload: ScorableImage["payload"] | null;
 };
 
 type RawPost = {
   postUrl: string;
   caption: string;
-  media: MediaItem[];
+  candidates: MediaCandidate[];
   llmImages: LlmImage[];
   isReel: boolean;
   timestamp: string | null;
@@ -116,176 +145,55 @@ function normalizeMediaType(contentType: string | null): MediaType {
   return "image/jpeg";
 }
 
-function extensionFor(mediaType: MediaType): string {
-  return mediaType.split("/")[1] ?? "jpg";
+function extensionFor(mediaType: string): string {
+  const sub = mediaType.split("/")[1] ?? "jpg";
+  return sub === "jpeg" ? "jpg" : sub;
 }
 
-async function downloadImages(
+async function downloadBinary(
   context: BrowserContext,
-  urls: string[],
-): Promise<DownloadedImage[]> {
-  const out: DownloadedImage[] = [];
-  for (const url of urls) {
-    try {
-      const res = await context.request.get(url, { timeout: 15000 });
-      if (!res.ok()) continue;
-      const buf = await res.body();
-      out.push({
-        buffer: buf,
-        mediaType: normalizeMediaType(res.headers()["content-type"] ?? null),
-      });
-    } catch {}
+  url: string,
+  timeoutMs = 20000,
+): Promise<Downloaded | null> {
+  try {
+    const res = await context.request.get(url, { timeout: timeoutMs });
+    if (!res.ok()) return null;
+    return {
+      buffer: await res.body(),
+      contentType: res.headers()["content-type"] ?? "",
+    };
+  } catch {
+    return null;
   }
-  return out;
-}
-
-function isUsablePostImageUrl(url: string): boolean {
-  if (!url) return false;
-  if (!/(cdninstagram|fbcdn)/.test(url)) return false;
-  if (url.includes("/profile_pic") || url.includes("profile_pic")) return false;
-  if (/\/(s|p)\d{2,3}x\d{2,3}\//.test(url)) return false;
-  if (url.includes("s150x150") || url.includes("s320x320") || url.includes("s240x240")) return false;
-  return true;
-}
-
-async function extractPostImageUrls(page: Page): Promise<string[]> {
-  const html = await page.content().catch(() => "");
-  const found = new Set<string>();
-
-  const ogImage = await page
-    .$eval('meta[property="og:image"]', (el) => el.getAttribute("content") ?? "")
-    .catch(() => "");
-  if (ogImage) found.add(ogImage);
-
-  // <link rel="preload" as="image" href="..." imagesrcset="...">
-  // IG uses preload hints for every image in a carousel.
-  const linkAttrs = await page
-    .$$eval(
-      'link[rel="preload"][as="image"]',
-      (links) =>
-        links.flatMap((l) => {
-          const out: string[] = [];
-          const href = l.getAttribute("href");
-          if (href) out.push(href);
-          const srcset = l.getAttribute("imagesrcset") ?? l.getAttribute("imageSrcSet");
-          if (srcset) {
-            for (const part of srcset.split(",")) {
-              const url = part.trim().split(/\s+/)[0];
-              if (url) out.push(url);
-            }
-          }
-          return out;
-        }),
-    )
-    .catch(() => [] as string[]);
-  for (const u of linkAttrs) if (u) found.add(u);
-
-  // Rendered <img> tags (current slide + any eager-loaded neighbours).
-  const imgAttrs = await page
-    .$$eval(
-      'img[src*="cdninstagram"], img[src*="fbcdn"], img[srcset]',
-      (imgs) =>
-        imgs.flatMap((img) => {
-          const out: string[] = [];
-          const src = img.getAttribute("src");
-          if (src) out.push(src);
-          const srcset = img.getAttribute("srcset");
-          if (srcset) {
-            for (const part of srcset.split(",")) {
-              const url = part.trim().split(/\s+/)[0];
-              if (url) out.push(url);
-            }
-          }
-          return out;
-        }),
-    )
-    .catch(() => [] as string[]);
-  for (const u of imgAttrs) if (u) found.add(u);
-
-  // Regex over raw HTML (covers preload links, JSON blobs in <script>).
-  // The protocol and mid-URL slashes may be JSON-escaped as `\/`, and `&`
-  // may appear as `\u0026`, so we match liberally then normalize.
-  const HTML_URL_RE =
-    /https:(?:\\?\/){2}[^"'\s<>]*?(?:cdninstagram\.com|fbcdn\.net)[^"'\s<>]+/g;
-  for (const match of html.matchAll(HTML_URL_RE)) {
-    const url = match[0]
-      .replace(/\\\//g, "/")
-      .replace(/\\u0026/gi, "&");
-    found.add(url);
-  }
-
-  // Dedupe by ig_cache_key (stable per image, survives CDN host rotation);
-  // fall back to filename if the param is absent.
-  const canonical = new Map<string, string>();
-  for (const raw of found) {
-    if (!isUsablePostImageUrl(raw)) continue;
-    let key: string;
-    try {
-      const u = new URL(raw);
-      const cacheKey = u.searchParams.get("ig_cache_key");
-      if (cacheKey) {
-        key = `ck:${cacheKey}`;
-      } else {
-        const filename = u.pathname.split("/").filter(Boolean).pop() ?? u.pathname;
-        key = `f:${filename}`;
-      }
-    } catch {
-      key = `raw:${raw}`;
-    }
-    if (!canonical.has(key)) canonical.set(key, raw);
-  }
-
-  return Array.from(canonical.values());
 }
 
 function extractPostId(postUrl: string): string {
-  const m = postUrl.match(/\/(?:p|reel)\/([^/?]+)/);
-  return m?.[1] ?? postUrl.split("/").filter(Boolean).pop() ?? "unknown";
+  return (
+    extractShortcode(postUrl) ??
+    postUrl.split("/").filter(Boolean).pop() ??
+    "unknown"
+  );
 }
 
-async function persistImages(
-  handle: string,
-  postUrl: string,
-  downloads: DownloadedImage[],
-): Promise<{ storedUrls: (string | null)[] }> {
-  const r2Enabled = isR2Enabled();
-  const postId = extractPostId(postUrl);
-  const storedUrls: (string | null)[] = new Array(downloads.length).fill(null);
-  if (!r2Enabled) return { storedUrls };
-  for (let i = 0; i < downloads.length; i++) {
-    const img = downloads[i]!;
-    try {
-      const key = `instagram/${handle}/${postId}/${i}.${extensionFor(img.mediaType)}`;
-      storedUrls[i] = await uploadToR2(key, img.buffer, img.mediaType);
-    } catch (err) {
-      console.warn(
-        `[instagram] R2 upload failed for ${postId}#${i}: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
+/**
+ * Uploads to R2 and returns the public URL, or null when R2 isn't configured or
+ * the upload failed. Callers fall back to the Instagram CDN URL, which works but
+ * expires — that's why R2 is strongly preferred.
+ */
+async function persist(
+  key: string,
+  buffer: Buffer,
+  contentType: string,
+): Promise<string | null> {
+  if (!isR2Enabled()) return null;
+  try {
+    return await uploadToR2(key, buffer, contentType);
+  } catch (err) {
+    console.warn(
+      `[instagram] R2 upload failed for ${key}: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return null;
   }
-  return { storedUrls };
-}
-
-function buildLlmImages(
-  downloads: DownloadedImage[],
-  storedUrls: (string | null)[],
-  count: number,
-): LlmImage[] {
-  const out: LlmImage[] = [];
-  for (let i = 0; i < Math.min(count, downloads.length); i++) {
-    const stored = storedUrls[i];
-    if (stored) {
-      out.push({ kind: "url", url: stored });
-    } else {
-      const img = downloads[i]!;
-      out.push({
-        kind: "base64",
-        mediaType: img.mediaType,
-        data: img.buffer.toString("base64"),
-      });
-    }
-  }
-  return out;
 }
 
 async function delay(ms: number): Promise<void> {
@@ -326,64 +234,138 @@ async function fetchSinglePost(
   await page
     .waitForSelector('meta[property="og:description"]', { timeout: 5000 })
     .catch(() => null);
-
-  const caption = await page
-    .$eval('meta[property="og:description"]', (el) => {
-      const raw = el.getAttribute("content") ?? "";
-      const dashIdx = raw.indexOf(" - ");
-      return dashIdx > -1 ? raw.slice(dashIdx + 3).replace(/^"/, "").replace(/"$/, "") : raw;
-    })
-    .catch(() => "");
-
   await page
-    .waitForSelector('img[src*="cdninstagram"], img[src*="fbcdn"]', { timeout: 4000 })
+    .waitForSelector('article img[src*="cdninstagram"], article img[src*="fbcdn"]', {
+      timeout: 4000,
+    })
     .catch(() => null);
 
-  const allDiscovered = await extractPostImageUrls(page);
-  const discoveredUrls = allDiscovered.slice(0, INSTAGRAM_CONFIG.maxImagesPerPost);
+  const extracted = await extractPostMedia(page, postUrl);
+  const postId = extractPostId(postUrl);
+  const candidates: MediaCandidate[] = [];
 
-  const timeEl = await page.$("time[datetime]").catch(() => null);
-  const timestamp = timeEl ? await timeEl.getAttribute("datetime") : null;
+  // --- reel video: store the mp4 and cut our own frames ------------------
+  // IG's signed CDN URLs expire within days, so a reel that isn't copied into
+  // R2 becomes an unplayable listing. And its cover frame has a play glyph
+  // burned into the pixels, so we need frames of our own to pick a hero from.
+  let posterUrl: string | null = null;
+  if (extracted.videoUrl) {
+    const video = await downloadBinary(context, extracted.videoUrl, 60000);
+    if (video) {
+      const storedVideo = await persist(
+        `instagram/${handle}/${postId}/video.mp4`,
+        video.buffer,
+        "video/mp4",
+      );
+      const frames = await extractFrames(video.buffer);
+      for (const [i, frame] of frames.entries()) {
+        const key = `instagram/${handle}/${postId}/frame-${i}.jpg`;
+        const stored = await persist(key, frame.buffer, "image/jpeg");
+        const url = stored ?? "";
+        if (!url) continue;
+        if (!posterUrl) posterUrl = url;
+        candidates.push({
+          key,
+          url,
+          type: "image",
+          mimeType: "image/jpeg",
+          source: "reel_frame",
+          width: null,
+          height: null,
+          posterUrl: null,
+          scorePayload: stored
+            ? { kind: "url", url: stored }
+            : {
+                kind: "base64",
+                mediaType: "image/jpeg",
+                data: frame.buffer.toString("base64"),
+              },
+        });
+      }
 
-  const videoUrl = await page
-    .$eval('meta[property="og:video"]', (el) => el.getAttribute("content") ?? "")
-    .catch(() => "");
+      const videoUrl = storedVideo ?? extracted.videoUrl;
+      candidates.push({
+        key: `${postId}:video`,
+        url: videoUrl,
+        type: "video",
+        mimeType: "video/mp4",
+        source: "reel_frame",
+        width: null,
+        height: null,
+        posterUrl: null,
+        scorePayload: null,
+      });
+    }
+  }
 
-  const downloads = await downloadImages(context, discoveredUrls);
-  const { storedUrls } = await persistImages(handle, postUrl, downloads);
-  const llmImages = buildLlmImages(downloads, storedUrls, LLM_IMAGES_PER_POST);
-
-  const imageUrls = downloads
-    .map((d, i) => ({
-      url: storedUrls[i] ?? discoveredUrls[i] ?? "",
-      mimeType: d.mediaType as string,
-    }))
-    .filter((m) => !!m.url);
-
-  const isReel = isReelUrl(postUrl) || Boolean(videoUrl);
-
-  const media: MediaItem[] = [];
-  if (videoUrl) {
-    media.push({
-      url: videoUrl,
-      type: "video",
-      mimeType: "video/mp4",
-      posterUrl: imageUrls[0]?.url ?? null,
+  // --- stills from the post's own carousel (or the reel cover) -----------
+  const imageUrls = extracted.images.slice(0, INSTAGRAM_CONFIG.maxImagesPerPost);
+  for (const [i, candidate] of imageUrls.entries()) {
+    const download = await downloadBinary(context, candidate.url);
+    if (!download) continue;
+    const mediaType = normalizeMediaType(download.contentType);
+    const key = `instagram/${handle}/${postId}/${i}.${extensionFor(mediaType)}`;
+    const stored = await persist(key, download.buffer, mediaType);
+    const url = stored ?? candidate.url;
+    const isCover =
+      extracted.coverImageUrl != null && candidate.url === extracted.coverImageUrl;
+    candidates.push({
+      key,
+      url,
+      type: "image",
+      mimeType: mediaType,
+      source: isCover ? "reel_cover" : "carousel",
+      width: candidate.width,
+      height: candidate.height,
+      posterUrl: null,
+      scorePayload: stored
+        ? { kind: "url", url: stored }
+        : {
+            kind: "base64",
+            mediaType,
+            data: download.buffer.toString("base64"),
+          },
     });
+    if (!posterUrl) posterUrl = url;
   }
-  for (const img of imageUrls) {
-    media.push({ url: img.url, type: "image", mimeType: img.mimeType });
+
+  // Give the video item a poster now that we know the best available still.
+  for (const candidate of candidates) {
+    if (candidate.type === "video") candidate.posterUrl = posterUrl;
   }
+
+  // Prefer real carousel photos and extracted frames over the play-glyph cover
+  // when choosing what to send to the extraction model.
+  const llmImages: LlmImage[] = candidates
+    .filter((c) => c.type === "image" && c.scorePayload)
+    .sort((a, b) => sourceRank(a.source) - sourceRank(b.source))
+    .slice(0, LLM_IMAGES_PER_POST)
+    .map((c) => c.scorePayload!) as LlmImage[];
 
   return {
     postUrl,
-    caption,
-    media,
+    caption: extracted.caption ?? "",
+    candidates,
     llmImages,
-    isReel,
-    timestamp,
+    isReel: extracted.isVideo || isReelUrl(postUrl),
+    timestamp: extracted.takenAt ? extracted.takenAt.toISOString() : null,
     handle,
   };
+}
+
+function sourceRank(source: MediaSource): number {
+  switch (source) {
+    case "manual":
+      return 0;
+    case "carousel":
+      return 1;
+    case "reel_frame":
+      return 2;
+    case "marketplace":
+      return 3;
+    case "reel_cover":
+      return 4;
+  }
 }
 
 async function fetchPostsParallel(
@@ -411,13 +393,13 @@ async function fetchPostsParallel(
         const post = await fetchSinglePost(context, workerPage, postUrl, handle);
         results[i] = post;
         bar?.tick(
-          `${shortId} (${post.media.length} media, ${post.caption.length} chars)`,
+          `${shortId} (${post.candidates.length} media, ${post.caption.length} chars)`,
         );
       } catch (err) {
         results[i] = {
           postUrl,
           caption: "",
-          media: [],
+          candidates: [],
           llmImages: [],
           isReel: isReelUrl(postUrl),
           timestamp: null,
@@ -517,6 +499,75 @@ async function scrapeProfilePosts(
 
   bar?.done(`fetched ${posts.length} in ${Date.now() - fetchStart}ms`);
   return posts;
+}
+
+/**
+ * Runs the vision scorer over a post's stills and returns the media array in
+ * hero-first order. The video (if any) is kept but never becomes media[0] —
+ * cards render an image, and a poster frame we chose beats one Instagram chose.
+ */
+async function buildOrderedMedia(
+  post: RawPost,
+  carData: { make: string | null; model: string | null; year: number | null },
+  handle: string,
+): Promise<MediaItem[]> {
+  const images = post.candidates.filter((c) => c.type === "image");
+  const videos = post.candidates.filter((c) => c.type === "video");
+
+  const scorable: ScorableImage[] = images
+    .filter((c) => c.scorePayload)
+    .map((c) => ({ key: c.key, source: c.source, payload: c.scorePayload! }));
+
+  const carLabel = [carData.year, carData.make, carData.model]
+    .filter(Boolean)
+    .join(" ");
+
+  const scores = await scoreImages(scorable, {
+    handle,
+    postUrl: post.postUrl,
+    carLabel: carLabel || "used car",
+  });
+  const scoreByKey = new Map(scores.map((s) => [s.key, s]));
+
+  const scoredImages = images
+    .map((candidate) => {
+      const score = scoreByKey.get(candidate.key);
+      return {
+        candidate,
+        score: score?.score ?? 25,
+        reason: score?.reason ?? "unscored",
+      };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  const media: MediaItem[] = scoredImages.map(({ candidate, score, reason }) => ({
+    url: candidate.url,
+    type: "image" as const,
+    mimeType: candidate.mimeType,
+    posterUrl: null,
+    source: candidate.source,
+    width: candidate.width,
+    height: candidate.height,
+    score,
+    scoreReason: reason,
+  }));
+
+  const heroUrl = media[0]?.url ?? null;
+  for (const video of videos) {
+    media.push({
+      url: video.url,
+      type: "video",
+      mimeType: video.mimeType,
+      posterUrl: heroUrl ?? video.posterUrl,
+      source: video.source,
+      width: null,
+      height: null,
+      score: null,
+      scoreReason: null,
+    });
+  }
+
+  return media;
 }
 
 export function createInstagramAdapter(
@@ -626,50 +677,96 @@ export function createInstagramAdapter(
             }
 
             const dealer = dealerByHandle.get(handle);
-            posts.forEach((post, i) => {
-              const carData = batchResults[i];
-              if (!carData) return;
-              if (
-                !carData.isCarListing ||
-                !carData.make ||
-                !carData.model ||
-                !carData.year
-              ) {
-                return;
+
+            // Only score images for posts that actually turned out to be car
+            // listings — roughly 40% of what we fetch is a meme or an
+            // announcement, and scoring those would be wasted spend.
+            const carPosts = posts
+              .map((post, i) => ({ post, carData: batchResults[i], index: i }))
+              .filter(
+                (entry): entry is { post: RawPost; carData: NonNullable<typeof entry.carData>; index: number } =>
+                  Boolean(
+                    entry.carData?.isCarListing &&
+                      entry.carData.make &&
+                      entry.carData.model &&
+                      entry.carData.year,
+                  ),
+              );
+
+            const orderedMediaByPost = new Map<string, MediaItem[]>();
+            for (const { post, carData } of carPosts) {
+              orderedMediaByPost.set(
+                post.postUrl,
+                await buildOrderedMedia(post, carData, handle),
+              );
+            }
+
+            for (const { post, carData } of carPosts) {
+              // The extraction model gets lakh/crore wrong often enough that we
+              // re-read the caption deterministically and prefer that when the
+              // two disagree by a clean power of ten.
+              const reconciled = reconcilePrice(carData.price, post.caption);
+              const normalized = normalizeListingFields({
+                make: carData.make!,
+                model: carData.model!,
+                variant: carData.variant,
+                fuelType: carData.fuelType,
+                transmission: carData.transmission,
+                bodyType: carData.bodyType,
+                color: carData.color,
+                city: dealer?.city ?? INSTAGRAM_CONFIG.city,
+                sellerPhone: carData.sellerPhone,
+              });
+
+              const plausibility = assessPrice(reconciled.price, {
+                make: normalized.make,
+                year: carData.year,
+              });
+              const reviewReasons = [
+                reconciled.corrected ? `price ${reconciled.reason}` : null,
+                plausibility.plausible ? null : plausibility.reason,
+              ].filter(Boolean) as string[];
+
+              if (reconciled.corrected) {
+                console.log(
+                  `[instagram] ${post.postUrl}: price corrected ${carData.price} -> ${reconciled.price} (${reconciled.reason})`,
+                );
               }
 
               const saleStatus = carData.isSold ? "sold" : "available";
               listings.push({
-                make: carData.make,
-                model: carData.model,
-                variant: carData.variant ?? undefined,
-                year: carData.year,
-                price: carData.price ?? null,
+                make: normalized.make,
+                model: normalized.model,
+                variant: normalized.variant ?? undefined,
+                year: carData.year!,
+                price: reconciled.price,
                 listingStatus:
-                  carData.price != null ? "priced" : "price_on_request",
+                  reconciled.price != null ? "priced" : "price_on_request",
                 saleStatus,
                 soldAt: carData.isSold ? new Date() : null,
                 kmDriven: carData.kmDriven ?? undefined,
-                fuelType: carData.fuelType ?? undefined,
-                transmission: carData.transmission ?? undefined,
+                fuelType: normalized.fuelType ?? undefined,
+                transmission: normalized.transmission ?? undefined,
                 ownerCount: carData.ownerCount ?? undefined,
-                color: carData.color ?? undefined,
-                bodyType: carData.bodyType ?? undefined,
-                city: dealer?.city ?? INSTAGRAM_CONFIG.city,
+                color: normalized.color ?? undefined,
+                bodyType: normalized.bodyType ?? undefined,
+                city: normalized.city ?? INSTAGRAM_CONFIG.city,
                 sourcePlatform: "instagram",
                 sourceUrl: post.postUrl,
-                sourceListingId: post.postUrl.split("/p/")[1]?.replace("/", ""),
+                sourceListingId: extractShortcode(post.postUrl) ?? undefined,
                 sellerName: dealer?.displayName ?? `@${post.handle}`,
-                sellerPhone: carData.sellerPhone ?? undefined,
+                sellerPhone: normalized.sellerPhone ?? undefined,
                 sellerType: "dealer",
                 dealerSourceId: dealer?.dealerSourceId,
                 garageId: dealer?.garageId,
-                media: post.media,
+                media: orderedMediaByPost.get(post.postUrl) ?? [],
                 description: post.caption || undefined,
                 listedAt: post.timestamp ? new Date(post.timestamp) : undefined,
+                needsReview: reviewReasons.length > 0,
+                reviewReason: reviewReasons.join("; ") || null,
               });
               handleListings++;
-            });
+            }
 
             const scrapedRecords = posts.map((post, i) => {
               const carData = batchResults[i];

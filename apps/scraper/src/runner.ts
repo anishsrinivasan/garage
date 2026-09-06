@@ -2,8 +2,11 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "@preowned-cars/db";
 import { carListings, dealerSources, scrapeRuns } from "@preowned-cars/db";
 import type { ScraperAdapter, NormalizedListing } from "@preowned-cars/shared";
+import { normalizeListingFields, assessPrice } from "@preowned-cars/shared";
 import { createHash } from "crypto";
 import { validateListing } from "./utils/validation";
+import { delistUnseen, reactivate } from "./delist";
+import { rebuildDedupeClusters } from "./dedupe";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 5000;
@@ -37,8 +40,20 @@ async function getAggregatorSource(
   return value;
 }
 
+/**
+ * Fingerprints the car, not the post. The URL used to be part of the key, which
+ * made every hash unique by construction and left the column useless for
+ * spotting the same car reposted under a new URL.
+ */
 function computeContentHash(listing: NormalizedListing): string {
-  const key = `${listing.make}|${listing.model}|${listing.year}|${listing.price}|${listing.sourceUrl}`;
+  const key = [
+    listing.make.toLowerCase(),
+    listing.model.toLowerCase(),
+    listing.year,
+    listing.kmDriven ?? "na",
+    listing.price ?? "na",
+    listing.garageId ?? listing.sourcePlatform,
+  ].join("|");
   return createHash("sha256").update(key).digest("hex");
 }
 
@@ -46,7 +61,32 @@ async function upsertListings(listings: NormalizedListing[]): Promise<{ newCount
   let newCount = 0;
   let updatedCount = 0;
 
-  for (const listing of listings) {
+  const now = new Date();
+
+  for (const raw of listings) {
+    // Canonicalise on the way in so the filter sidebar never grows a second
+    // "Diesel" pill again, whichever adapter produced the row.
+    const normalized = normalizeListingFields(raw);
+    const listing: NormalizedListing = {
+      ...raw,
+      make: normalized.make,
+      model: normalized.model,
+      variant: normalized.variant ?? undefined,
+      fuelType: normalized.fuelType ?? undefined,
+      transmission: normalized.transmission ?? undefined,
+      bodyType: normalized.bodyType ?? undefined,
+      color: normalized.color ?? undefined,
+      city: normalized.city ?? raw.city,
+      sellerPhone: normalized.sellerPhone ?? undefined,
+    };
+
+    const plausibility = assessPrice(listing.price, listing);
+    const reviewReasons = [
+      listing.reviewReason ?? null,
+      plausibility.plausible ? null : plausibility.reason,
+    ].filter(Boolean) as string[];
+    const needsReview = Boolean(listing.needsReview) || reviewReasons.length > 0;
+
     const contentHash = computeContentHash(listing);
     const priceValue = listing.price != null ? String(listing.price) : null;
     const listingStatus =
@@ -96,6 +136,11 @@ async function upsertListings(listings: NormalizedListing[]): Promise<{ newCount
         soldAt,
         contentHash,
         isActive: true,
+        firstSeenAt: now,
+        lastSeenAt: now,
+        delistedAt: null,
+        needsReview,
+        reviewReason: reviewReasons.join("; ") || null,
       })
       .onConflictDoUpdate({
         target: [carListings.sourcePlatform, carListings.sourceUrl],
@@ -112,16 +157,26 @@ async function upsertListings(listings: NormalizedListing[]): Promise<{ newCount
           // a previously-sold timestamp just because the new scrape omitted it.
           ...(soldAt ? { soldAt } : {}),
           isActive: true,
-          updatedAt: new Date(),
+          // firstSeenAt is deliberately NOT in the update set — it is the one
+          // column that must survive a re-scrape for freshness to mean anything.
+          lastSeenAt: now,
+          delistedAt: null,
+          needsReview,
+          reviewReason: reviewReasons.join("; ") || null,
+          updatedAt: now,
           contentHash,
         },
       })
-      .returning({ id: carListings.id, updatedAt: carListings.updatedAt });
+      .returning({
+        id: carListings.id,
+        firstSeenAt: carListings.firstSeenAt,
+      });
 
     if (result.length > 0) {
       const row = result[0]!;
-      const isNew = row.updatedAt.getTime() - Date.now() < 1000;
-      if (isNew) newCount++;
+      // A row inserted by this statement has firstSeenAt === now; one that
+      // already existed keeps its original value.
+      if (Math.abs(row.firstSeenAt.getTime() - now.getTime()) < 1000) newCount++;
       else updatedCount++;
     }
   }
@@ -129,7 +184,19 @@ async function upsertListings(listings: NormalizedListing[]): Promise<{ newCount
   return { newCount, updatedCount };
 }
 
-export async function runAdapter(adapter: ScraperAdapter): Promise<void> {
+export type RunOptions = {
+  /** "cron" | "manual" | "cli" — recorded so a failed nightly run is findable. */
+  trigger?: string;
+  /** Skip the delist sweep, e.g. for a targeted single-dealer re-scrape. */
+  skipDelist?: boolean;
+  /** Skip cluster rebuild when several adapters run back to back. */
+  skipDedupe?: boolean;
+};
+
+export async function runAdapter(
+  adapter: ScraperAdapter,
+  options: RunOptions = {},
+): Promise<void> {
   console.log(`[runner] Starting ${adapter.name} scraper...`);
 
   const [run] = await db
@@ -137,6 +204,7 @@ export async function runAdapter(adapter: ScraperAdapter): Promise<void> {
     .values({
       sourcePlatform: adapter.name,
       status: "running",
+      trigger: options.trigger ?? "cli",
     })
     .returning();
 
@@ -176,6 +244,28 @@ export async function runAdapter(adapter: ScraperAdapter): Promise<void> {
 
       const { newCount, updatedCount } = await upsertListings(validListings);
 
+      // Anything this source used to carry but didn't produce this run has
+      // most likely sold or been taken down. The sweep is coverage-guarded so a
+      // degraded run can't wipe a healthy source.
+      const seenUrls = validListings.map((l) => l.sourceUrl);
+      await reactivate(seenUrls);
+      let delistedCount = 0;
+      if (!options.skipDelist) {
+        const sweep = await delistUnseen(adapter.name, seenUrls);
+        delistedCount = sweep.delisted;
+        if (sweep.skipped) {
+          console.warn(`[runner] ${adapter.name}: delist sweep skipped — ${sweep.reason}`);
+        }
+      }
+
+      if (!options.skipDedupe) {
+        await rebuildDedupeClusters().catch((err) =>
+          console.warn(
+            `[runner] ${adapter.name}: dedupe failed — ${err instanceof Error ? err.message : String(err)}`,
+          ),
+        );
+      }
+
       const hasErrors = result.errors.length > 0 || rejectedCount > 0;
       const errorParts: string[] = [];
       if (result.errors.length > 0) {
@@ -194,13 +284,14 @@ export async function runAdapter(adapter: ScraperAdapter): Promise<void> {
           listingsNew: newCount,
           listingsUpdated: updatedCount,
           listingsRejected: rejectedCount,
+          listingsDelisted: delistedCount,
           rejectionReasons: rejectionReasons.length > 0 ? rejectionReasons.join("\n") : null,
           errorMessage: errorParts.length > 0 ? errorParts.join("\n\n") : null,
         })
         .where(eq(scrapeRuns.id, run!.id));
 
       console.log(
-        `[runner] ${adapter.name}: done. ${newCount} new, ${updatedCount} updated, ${rejectedCount} rejected (${result.metadata.durationMs}ms)`
+        `[runner] ${adapter.name}: done. ${newCount} new, ${updatedCount} updated, ${rejectedCount} rejected, ${delistedCount} delisted (${result.metadata.durationMs}ms)`
       );
       return;
     } catch (err) {

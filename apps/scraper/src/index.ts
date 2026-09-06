@@ -5,6 +5,8 @@ import { createCars24Adapter } from "./adapters/cars24";
 import { createCardekhoAdapter } from "./adapters/cardekho";
 import { createOlxAdapter } from "./adapters/olx";
 import { runAdapter } from "./runner";
+import { delistStale } from "./delist";
+import { rebuildDedupeClusters } from "./dedupe";
 
 async function fetchDealers(platform: string): Promise<
   Array<{
@@ -41,6 +43,18 @@ async function main() {
   const args = process.argv.slice(2);
   const sourceIdx = args.indexOf(SOURCE_FLAG);
   const source = sourceIdx !== -1 ? args[sourceIdx + 1] : "all";
+  const triggerIdx = args.indexOf("--trigger");
+  const trigger = triggerIdx !== -1 ? args[triggerIdx + 1]! : "cli";
+
+  // Maintenance-only entry points, used by the cron service between scrapes.
+  if (source === "maintenance") {
+    const delisted = await delistStale();
+    const dedupe = await rebuildDedupeClusters();
+    console.log(
+      `[main] maintenance: ${delisted} delisted, ${dedupe.demoted} demoted into ${dedupe.clusters} cluster(s)`,
+    );
+    return;
+  }
 
   const adapters = [];
 
@@ -70,8 +84,13 @@ async function main() {
     process.exit(1);
   }
 
-  for (const adapter of adapters) {
-    await runAdapter(adapter);
+  // Dedupe once at the end rather than after each adapter — it rebuilds every
+  // cluster in the table, so running it per-adapter is pure duplicated work.
+  for (const [i, adapter] of adapters.entries()) {
+    await runAdapter(adapter, {
+      trigger,
+      skipDedupe: i < adapters.length - 1,
+    });
   }
 }
 

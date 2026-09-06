@@ -8,6 +8,7 @@ import type {
 } from "@preowned-cars/shared";
 import { CARDEKHO_CONFIG } from "./cardekho-config";
 import { parseIndianPrice } from "../utils/price";
+import { collectImageUrls } from "../utils/images";
 
 type RawCardekhoListing = {
   make: string;
@@ -22,6 +23,7 @@ type RawCardekhoListing = {
   location?: string;
   sourceUrl: string;
   photos: string[];
+  listedAt?: Date;
 };
 
 function delay(ms: number): Promise<void> {
@@ -117,11 +119,16 @@ function parseListingsFromHtml(html: string): RawCardekhoListing[] {
 
         const url = product.url ?? product.offers?.url ?? "";
         const image = product.image;
-        const photos = Array.isArray(image)
+        const rawPhotos = Array.isArray(image)
           ? image.map(String)
           : image
             ? [String(image)]
             : [];
+        const photos = collectImageUrls(
+          rawPhotos.map((url) => ({ src: url })),
+          resolveUrl,
+          6,
+        );
 
         listings.push({
           make,
@@ -220,10 +227,16 @@ function parseListingsFromHtml(html: string): RawCardekhoListing[] {
       card.closest("a").attr("href") ??
       "";
 
-    const imgEl = card.find("img").first();
-    const imgSrc =
-      imgEl.attr("src") ?? imgEl.attr("data-src") ?? imgEl.attr("data-lazy") ?? "";
-    const photos = imgSrc ? [resolveUrl(imgSrc)] : [];
+    // Cards lazy-load, so `src` on its own is a placeholder. Read every
+    // attribute the lazy-loader might have populated.
+    const photos = collectImageUrls(
+      card
+        .find("img")
+        .toArray()
+        .map((img) => ($(img).attr() ?? {}) as Record<string, string | undefined>),
+      resolveUrl,
+      6,
+    );
 
     const locationEl =
       card.find("[class*='location']").first().text() ||
@@ -266,7 +279,16 @@ function normalizeListing(raw: RawCardekhoListing): NormalizedListing | null {
     sourcePlatform: "cardekho",
     sourceUrl: raw.sourceUrl,
     sourceListingId: raw.sourceUrl.match(/\/used-car-details\/[^/]*?-(\d+)\.htm/)?.[1],
-    media: raw.photos.map((url) => ({ url, type: "image" as const })),
+    media: raw.photos.map((url) => ({
+      url,
+      type: "image" as const,
+      source: "marketplace" as const,
+    })),
+    // Marketplaces rarely expose a publish date. When they don't, the runner
+    // leaves listedAt null and the feed falls back to firstSeenAt, so a
+    // marketplace listing is dated from when we first saw it rather than being
+    // undated (which previously excluded 181 rows from any date-aware sort).
+    listedAt: raw.listedAt,
   };
 }
 

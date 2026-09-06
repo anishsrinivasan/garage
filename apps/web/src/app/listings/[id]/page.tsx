@@ -1,33 +1,48 @@
-export const dynamic = "force-dynamic";
-
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
+  AlertTriangle,
   ArrowLeft,
   ArrowUpRight,
   Calendar,
+  CheckCircle2,
   Droplet,
   Fuel,
   Gauge,
-  ImageOff,
   MapPin,
+  MessageCircle,
   Palette,
   Phone,
   Settings2,
-  User,
+  Store,
   Users,
 } from "lucide-react";
-import { getListingById } from "@/app/lib/queries";
+import {
+  getListingById,
+  getClusterSiblings,
+  getSimilarListings,
+} from "@/app/lib/queries";
 import {
   formatPrice,
+  exactPrice,
   formatKm,
   formatDate,
   capitalize,
+  imageAlt,
+  relativeAge,
+  daysBetween,
 } from "@/app/lib/format";
+import { orderedGallery, pickHeroImage, type MediaItem } from "@/app/lib/media";
+import { STALE_AFTER_DAYS } from "@preowned-cars/shared";
 import { SourceBadge } from "@/app/components/source-badge";
 import { BookmarkButton } from "@/app/components/bookmark-button";
 import { ReportListingModal } from "@/app/components/report-listing-modal";
+import { Gallery } from "@/app/components/gallery";
+import { ListingCard } from "@/app/components/listing-card";
+import { AgeChip } from "@/app/components/age-chip";
+
+export const revalidate = 600;
 
 export async function generateMetadata({
   params,
@@ -39,38 +54,32 @@ export async function generateMetadata({
   if (!listing) return { title: "Listing not found" };
 
   const title = `${listing.year} ${listing.make} ${listing.model}${listing.variant ? " " + listing.variant : ""}`;
-  const priceText =
-    listing.price != null
-      ? `₹${formatPrice(listing.price)}`
-      : "Price on request";
+  const price = formatPrice(listing.price);
   const descriptionParts = [
-    priceText,
+    price ? `₹${price}` : "Price on request",
     listing.kmDriven != null ? formatKm(listing.kmDriven) : null,
     listing.fuelType ? capitalize(listing.fuelType) : null,
     listing.transmission ? capitalize(listing.transmission) : null,
     listing.city,
   ].filter(Boolean);
 
-  const media = (listing.media as Array<{ url: string; type: string; posterUrl?: string | null }> | null) ?? [];
-  const heroImage =
-    media.find((m) => m.type === "image")?.url ??
-    media[0]?.posterUrl ??
-    undefined;
+  const hero = pickHeroImage(listing.media as MediaItem[] | null, listing.heroMediaUrl);
 
   return {
     title,
     description: descriptionParts.join(" · "),
+    alternates: { canonical: `/listings/${id}` },
     openGraph: {
       title,
       description: descriptionParts.join(" · "),
       type: "article",
-      images: heroImage ? [{ url: heroImage }] : undefined,
+      images: hero ? [{ url: hero.url }] : undefined,
     },
     twitter: {
       card: "summary_large_image",
       title,
       description: descriptionParts.join(" · "),
-      images: heroImage ? [heroImage] : undefined,
+      images: hero ? [hero.url] : undefined,
     },
   };
 }
@@ -82,24 +91,38 @@ interface PageProps {
 export default async function ListingDetailPage({ params }: PageProps) {
   const { id } = await params;
   const listing = await getListingById(id);
-
   if (!listing) notFound();
 
-  type MediaItem = {
-    url: string;
-    type: "image" | "video";
-    mimeType?: string | null;
-    posterUrl?: string | null;
-  };
-  const media = ((listing.media as MediaItem[] | null) ?? []).filter(
-    (m) => m && m.url && (m.type === "image" || m.type === "video"),
+  const media = orderedGallery(
+    listing.media as MediaItem[] | null,
+    listing.heroMediaUrl,
   );
-  const hero = media[0];
-  const thumbnails = media.slice(1, 5);
   const isSold = listing.saleStatus === "sold";
+  const price = formatPrice(listing.price);
+  const listedDate = listing.listedAt ?? listing.firstSeenAt;
+  const daysSinceConfirmed = daysBetween(listing.lastSeenAt);
+  const isStale = daysSinceConfirmed > STALE_AFTER_DAYS;
+  const alt = imageAlt(listing);
+
+  const [siblings, similar] = await Promise.all([
+    getClusterSiblings(listing.id, listing.dedupClusterId),
+    getSimilarListings(listing),
+  ]);
+
+  const whatsappNumber = listing.sellerPhone ?? listing.garagePhone;
 
   return (
     <div className="animate-fade-in-up">
+      {/* schema.org Vehicle + Offer. The site has an SEO-shaped metadata setup
+          but shipped no structured data, so listings couldn't produce rich
+          results. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(buildVehicleJsonLd(listing, media)),
+        }}
+      />
+
       <Link
         href="/"
         className="mb-6 inline-flex items-center gap-1.5 text-sm text-ink-400 transition hover:text-ink-50"
@@ -110,10 +133,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
 
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <SourceBadge platform={listing.sourcePlatform} size="md" />
-        <span className="chip">
-          <Calendar className="h-3 w-3" />
-          Listed {formatDate(listing.listedAt)}
-        </span>
+        <AgeChip date={listedDate} />
         <span className="chip">
           <MapPin className="h-3 w-3" />
           {listing.city}
@@ -125,6 +145,24 @@ export default async function ListingDetailPage({ params }: PageProps) {
         )}
         <BookmarkButton listingId={listing.id} size="md" />
       </div>
+
+      {/* A listing we can no longer re-confirm is the single most misleading
+          thing this site can show. Say so explicitly rather than letting it
+          look as current as everything else. */}
+      {isStale && !isSold && (
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-500/25 bg-amber-500/[0.07] p-4">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+          <div className="text-sm">
+            <p className="font-semibold text-amber-100">
+              We haven&apos;t been able to confirm this listing in{" "}
+              {relativeAge(listing.lastSeenAt)?.replace(" ago", "")}.
+            </p>
+            <p className="mt-0.5 text-amber-200/70">
+              It may already be sold. Check with the dealer before travelling.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-white/5 pb-6">
         <div>
@@ -140,68 +178,16 @@ export default async function ListingDetailPage({ params }: PageProps) {
         </div>
         <div className="rounded-2xl border border-accent/20 bg-accent/5 px-5 py-3 shadow-glow">
           <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent/70">
-            Asking Price
+            {price ? "Asking price" : "Price"}
           </p>
           <p className="font-display text-3xl font-bold text-accent">
-            ₹{formatPrice(listing.price)}
+            {price ? `₹${price}` : "On request"}
           </p>
         </div>
       </div>
 
       <div className="mb-8">
-        <div className="hidden gap-2 sm:grid sm:grid-cols-3">
-          <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-white/5 bg-ink-900 sm:col-span-2 sm:aspect-auto sm:row-span-2">
-            {hero ? (
-              <MediaFrame item={hero} primary />
-            ) : (
-              <div className="flex h-full flex-col items-center justify-center gap-2 text-ink-500">
-                <ImageOff className="h-10 w-10" strokeWidth={1.3} />
-                <span className="text-sm">No preview</span>
-              </div>
-            )}
-          </div>
-          {thumbnails.map((item, i) => (
-            <div
-              key={i}
-              className="relative aspect-[4/3] overflow-hidden rounded-xl border border-white/5 bg-ink-900"
-            >
-              <MediaFrame item={item} />
-            </div>
-          ))}
-          {Array.from({ length: Math.max(0, 4 - thumbnails.length) }).map(
-            (_, i) => (
-              <div
-                key={`empty-${i}`}
-                className="relative aspect-[4/3] overflow-hidden rounded-xl border border-white/5 bg-white/[0.02]"
-              />
-            ),
-          )}
-        </div>
-
-        <div className="sm:hidden">
-          <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-white/5 bg-ink-900">
-            {hero ? (
-              <MediaFrame item={hero} primary />
-            ) : (
-              <div className="flex h-full flex-col items-center justify-center gap-2 text-ink-500">
-                <ImageOff className="h-10 w-10" strokeWidth={1.3} />
-                <span className="text-sm">No preview</span>
-              </div>
-            )}
-          </div>
-          {thumbnails.length > 0 && (
-            <div className="-mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-2">
-              {thumbnails.map((item, i) => (
-                <div
-                  key={i}
-                  className="relative aspect-[4/3] w-28 shrink-0 overflow-hidden rounded-xl border border-white/5 bg-ink-900"
-                >
-                  <MediaFrame item={item} />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <Gallery media={media} alt={alt} />
       </div>
 
       <div className="grid gap-6 md:grid-cols-[1fr_280px] lg:grid-cols-[1fr_320px]">
@@ -211,50 +197,29 @@ export default async function ListingDetailPage({ params }: PageProps) {
               Specifications
             </h2>
             <dl className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2 sm:gap-x-6 sm:gap-y-5 md:grid-cols-3">
-              <Detail
-                icon={Gauge}
-                label="Km Driven"
-                value={formatKm(listing.kmDriven)}
-              />
-              <Detail
-                icon={Fuel}
-                label="Fuel"
-                value={capitalize(listing.fuelType) || "—"}
-              />
+              <Detail icon={Gauge} label="Km driven" value={formatKm(listing.kmDriven)} />
+              <Detail icon={Fuel} label="Fuel" value={capitalize(listing.fuelType)} />
               <Detail
                 icon={Settings2}
                 label="Transmission"
-                value={capitalize(listing.transmission) || "—"}
+                value={capitalize(listing.transmission)}
               />
-              <Detail
-                icon={Droplet}
-                label="Body type"
-                value={capitalize(listing.bodyType) || "—"}
-              />
+              <Detail icon={Droplet} label="Body type" value={capitalize(listing.bodyType)} />
               <Detail
                 icon={Users}
                 label="Owners"
-                value={listing.ownerCount != null ? `${listing.ownerCount}` : "—"}
+                value={listing.ownerCount != null ? String(listing.ownerCount) : "—"}
               />
+              <Detail icon={Palette} label="Colour" value={capitalize(listing.color)} />
+              <Detail icon={Calendar} label="Year" value={String(listing.year)} />
+              {/* "Scraped" was internal jargon on a public page. These two are
+                  what a buyer actually wants: when it went up, and how sure we
+                  are it's still available. */}
+              <Detail icon={Calendar} label="Listed" value={formatDate(listedDate)} />
               <Detail
-                icon={Palette}
-                label="Color"
-                value={capitalize(listing.color) || "—"}
-              />
-              <Detail
-                icon={MapPin}
-                label="Location"
-                value={listing.location ?? "—"}
-              />
-              <Detail
-                icon={Calendar}
-                label="Year"
-                value={String(listing.year)}
-              />
-              <Detail
-                icon={Calendar}
-                label="Scraped"
-                value={formatDate(listing.scrapedAt)}
+                icon={CheckCircle2}
+                label="Last confirmed"
+                value={formatDate(listing.lastSeenAt)}
               />
             </dl>
           </section>
@@ -269,6 +234,37 @@ export default async function ListingDetailPage({ params }: PageProps) {
               </p>
             </section>
           )}
+
+          {/* Reposts of the same car, collapsed out of the feed by the deduper
+              but still worth showing here — a second post often has better
+              photos or a revised price. */}
+          {siblings.length > 0 && (
+            <section className="surface rounded-2xl p-6">
+              <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-[0.15em] text-ink-200">
+                Also posted
+              </h2>
+              <ul className="space-y-2">
+                {siblings.map((sibling) => (
+                  <li key={sibling.id}>
+                    <Link
+                      href={`/listings/${sibling.id}`}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-white/5 px-3 py-2 text-sm transition hover:border-white/15 hover:bg-white/[0.03]"
+                    >
+                      <span className="text-ink-300">
+                        {sibling.sourcePlatform} ·{" "}
+                        {formatDate(sibling.listedAt ?? sibling.firstSeenAt)}
+                      </span>
+                      <span className="font-mono text-xs text-accent">
+                        {formatPrice(sibling.price)
+                          ? `₹${formatPrice(sibling.price)}`
+                          : "On request"}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
         </div>
 
         <aside className="space-y-4">
@@ -277,22 +273,52 @@ export default async function ListingDetailPage({ params }: PageProps) {
               Seller
             </h2>
             <div className="space-y-3">
-              <Row
-                icon={User}
-                label="Name"
-                value={listing.sellerName ?? "—"}
-              />
-              <Row
-                icon={Phone}
-                label="Phone"
-                value={listing.sellerPhone ?? "—"}
-              />
-              <Row
-                icon={Users}
-                label="Type"
-                value={capitalize(listing.sellerType) || "—"}
-              />
+              {listing.garageSlug ? (
+                <Link
+                  href={`/garages/${listing.garageSlug}`}
+                  className="flex items-center justify-between gap-3 text-sm transition hover:text-accent"
+                >
+                  <span className="flex items-center gap-2 text-ink-500">
+                    <Store className="h-3.5 w-3.5" strokeWidth={1.8} />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.12em]">
+                      Garage
+                    </span>
+                  </span>
+                  <span className="truncate font-medium text-ink-100">
+                    {listing.garageName ?? listing.sellerName ?? "—"}
+                  </span>
+                </Link>
+              ) : (
+                <Row icon={Store} label="Seller" value={listing.sellerName ?? "—"} />
+              )}
+              <Row icon={Phone} label="Phone" value={whatsappNumber ?? "—"} />
+              <Row icon={Users} label="Type" value={capitalize(listing.sellerType)} />
             </div>
+
+            {/* Most Indian dealers respond on WhatsApp, not calls — 271 of the
+                319 Instagram listings carry a mobile number. */}
+            {whatsappNumber && (
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <a
+                  href={`tel:+91${whatsappNumber}`}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-ink-100 transition hover:bg-white/[0.07]"
+                >
+                  <Phone className="h-3.5 w-3.5" />
+                  Call
+                </a>
+                <a
+                  href={`https://wa.me/91${whatsappNumber}?text=${encodeURIComponent(
+                    `Hi, is the ${listing.year} ${listing.make} ${listing.model} still available?`,
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
+                >
+                  <MessageCircle className="h-3.5 w-3.5" />
+                  WhatsApp
+                </a>
+              </div>
+            )}
           </section>
 
           <a
@@ -318,43 +344,68 @@ export default async function ListingDetailPage({ params }: PageProps) {
           <ReportListingModal listingId={listing.id} />
         </aside>
       </div>
+
+      {similar.length > 0 && (
+        <section className="mt-14">
+          <h2 className="mb-5 font-display text-xl font-bold tracking-tight text-ink-50">
+            Similar cars
+          </h2>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            {similar.slice(0, 3).map((item) => (
+              <ListingCard key={item.id} listing={item} />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
 
-function MediaFrame({
-  item,
-  primary = false,
-}: {
-  item: {
-    url: string;
-    type: "image" | "video";
-    mimeType?: string | null;
-    posterUrl?: string | null;
+function buildVehicleJsonLd(
+  listing: Awaited<ReturnType<typeof getListingById>> & object,
+  media: MediaItem[],
+) {
+  const price = exactPrice(listing.price);
+  return {
+    "@context": "https://schema.org",
+    "@type": "Car",
+    name: `${listing.year} ${listing.make} ${listing.model}${listing.variant ? ` ${listing.variant}` : ""}`,
+    brand: { "@type": "Brand", name: listing.make },
+    model: listing.model,
+    vehicleModelDate: String(listing.year),
+    ...(listing.color ? { color: listing.color } : {}),
+    ...(listing.bodyType ? { bodyType: listing.bodyType } : {}),
+    ...(listing.fuelType ? { fuelType: listing.fuelType } : {}),
+    ...(listing.transmission ? { vehicleTransmission: listing.transmission } : {}),
+    ...(listing.kmDriven != null
+      ? {
+          mileageFromOdometer: {
+            "@type": "QuantitativeValue",
+            value: listing.kmDriven,
+            unitCode: "KMT",
+          },
+        }
+      : {}),
+    ...(listing.ownerCount != null
+      ? { numberOfPreviousOwners: listing.ownerCount }
+      : {}),
+    image: media.filter((m) => m.type === "image").map((m) => m.url).slice(0, 6),
+    ...(listing.description ? { description: listing.description.slice(0, 400) } : {}),
+    offers: {
+      "@type": "Offer",
+      priceCurrency: "INR",
+      ...(price ? { price } : {}),
+      availability:
+        listing.saleStatus === "sold"
+          ? "https://schema.org/SoldOut"
+          : "https://schema.org/InStock",
+      itemCondition: "https://schema.org/UsedCondition",
+      ...(listing.garageName
+        ? { seller: { "@type": "AutoDealer", name: listing.garageName } }
+        : {}),
+      areaServed: listing.city,
+    },
   };
-  primary?: boolean;
-}) {
-  if (item.type === "video") {
-    return (
-      <video
-        src={item.url}
-        poster={item.posterUrl ?? undefined}
-        controls={primary}
-        muted
-        playsInline
-        preload="metadata"
-        className="h-full w-full object-cover"
-      />
-    );
-  }
-  return (
-    /* eslint-disable-next-line @next/next/no-img-element */
-    <img
-      src={item.url}
-      alt=""
-      className={`h-full w-full object-cover ${primary ? "" : "transition duration-500 hover:scale-105"}`}
-    />
-  );
 }
 
 function Detail({
@@ -375,9 +426,7 @@ function Detail({
         <dt className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-500">
           {label}
         </dt>
-        <dd className="mt-0.5 truncate text-sm font-semibold text-ink-100">
-          {value}
-        </dd>
+        <dd className="mt-0.5 truncate text-sm font-semibold text-ink-100">{value}</dd>
       </div>
     </div>
   );
