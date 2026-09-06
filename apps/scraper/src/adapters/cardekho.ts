@@ -8,7 +8,7 @@ import type {
 } from "@preowned-cars/shared";
 import { CARDEKHO_CONFIG } from "./cardekho-config";
 import { parseIndianPrice } from "../utils/price";
-import { collectImageUrls } from "../utils/images";
+import { collectImageUrls, imageUrlsFromSchema } from "../utils/images";
 
 type RawCardekhoListing = {
   make: string;
@@ -118,14 +118,9 @@ function parseListingsFromHtml(html: string): RawCardekhoListing[] {
         if (!price) continue;
 
         const url = product.url ?? product.offers?.url ?? "";
-        const image = product.image;
-        const rawPhotos = Array.isArray(image)
-          ? image.map(String)
-          : image
-            ? [String(image)]
-            : [];
+        // `image` is an array of ImageObjects here, not strings.
         const photos = collectImageUrls(
-          rawPhotos.map((url) => ({ src: url })),
+          imageUrlsFromSchema(product.image).map((url) => ({ src: url })),
           resolveUrl,
           6,
         );

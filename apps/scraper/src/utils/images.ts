@@ -18,9 +18,11 @@ const LAZY_ATTRS = [
   "srcset",
 ] as const;
 
+// No trailing \b: the real placeholder CarDekho ships is `spacer3x2.png`, where
+// the digits after "spacer" defeat a word boundary.
 const PLACEHOLDER_PATTERNS = [
   /^data:/i,
-  /\b(placeholder|blank|spacer|loader|lazy|default[-_]?car|no[-_]?image)\b/i,
+  /(placeholder|blank|spacer|loader|default[-_]?car|no[-_]?image)/i,
   /\.svg(\?|$)/i,
 ];
 
@@ -41,6 +43,34 @@ export function isUsableImageUrl(url: string): boolean {
  * Pulls every plausible image URL off an element's `<img>` descendants,
  * de-duplicated and resolved to absolute URLs, best-first.
  */
+/**
+ * schema.org lets `image` be a string, an ImageObject, or an array of either.
+ * CarDekho ships an array of ImageObjects; the adapter previously ran
+ * `String(value)` over them, producing "[object Object]" for every photo, which
+ * is why all 111 of its listings had no media.
+ */
+export function imageUrlsFromSchema(value: unknown): string[] {
+  const out: string[] = [];
+  const visit = (node: unknown, depth = 0): void => {
+    if (node == null || depth > 4) return;
+    if (typeof node === "string") {
+      out.push(node);
+      return;
+    }
+    if (Array.isArray(node)) {
+      for (const entry of node) visit(entry, depth + 1);
+      return;
+    }
+    if (typeof node === "object") {
+      const obj = node as Record<string, unknown>;
+      const url = obj.url ?? obj.contentUrl ?? obj["@id"];
+      if (typeof url === "string") out.push(url);
+    }
+  };
+  visit(value);
+  return out;
+}
+
 export function collectImageUrls(
   attrsPerImage: Array<Record<string, string | undefined>>,
   resolveUrl: (url: string) => string,
