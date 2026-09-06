@@ -10,8 +10,8 @@
  * inside a freshness band.
  */
 
-/** Days for the recency multiplier to halve. */
-export const FRESHNESS_HALF_LIFE_DAYS = 21;
+/** Days for the recency multiplier to decay halfway to its floor. */
+export const FRESHNESS_HALF_LIFE_DAYS = 30;
 
 /** Beyond this, a listing is assumed gone unless a scrape re-confirms it. */
 export const STALE_AFTER_DAYS = 45;
@@ -19,8 +19,19 @@ export const STALE_AFTER_DAYS = 45;
 /** Beyond this, we stop showing it in the default feed entirely. */
 export const EXPIRE_AFTER_DAYS = 120;
 
-/** Recency multiplier floor, so an old-but-perfect listing never scores zero. */
-export const MIN_RECENCY_MULTIPLIER = 0.05;
+/**
+ * Floor for the recency multiplier.
+ *
+ * This is the knob that decides how much "recent" beats "good". At 0.05 an
+ * unbounded exponential made age the only thing that mattered: a same-day batch
+ * of ₹3 lakh hatchbacks buried every premium listing more than a few weeks old,
+ * because everything older had collapsed to the floor and was competing on a
+ * hundredth of the scale. At 0.35 the range is compressed enough that a
+ * well-photographed premium car from last month can still outrank a bare
+ * mass-market listing posted this morning — which is the intended mix of
+ * price and date, rather than a pure date sort wearing a score's clothing.
+ */
+export const MIN_RECENCY_MULTIPLIER = 0.35;
 
 /**
  * Premium marques get a modest boost because they're what this audience comes
@@ -46,6 +57,27 @@ export const PREMIUM_MAKES = [
   "mclaren",
   "lotus",
 ] as const;
+
+/**
+ * Price bands, as a gentle multiplier rather than a sort key.
+ *
+ * Price used to be an ordering key above recency, which pinned the single most
+ * expensive row to the top forever. Dropping it entirely went too far the other
+ * way. As a band multiplier it expresses "this audience came for the interesting
+ * cars" without letting one outlier dominate, and a bad parse costs a few
+ * positions instead of the whole front page.
+ */
+export const PRICE_TIERS: Array<{ min: number; multiplier: number }> = [
+  { min: 50_00_000, multiplier: 1.45 },
+  { min: 25_00_000, multiplier: 1.3 },
+  { min: 10_00_000, multiplier: 1.15 },
+  { min: 0, multiplier: 1.0 },
+];
+
+export function priceTierMultiplier(price: number | null | undefined): number {
+  if (price == null) return 1;
+  return PRICE_TIERS.find((tier) => price >= tier.min)?.multiplier ?? 1;
+}
 
 export const RANKING_WEIGHTS = {
   premiumMake: 1.25,

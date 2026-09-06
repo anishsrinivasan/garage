@@ -21,6 +21,7 @@ import {
   FRESHNESS_WINDOWS,
   MIN_RECENCY_MULTIPLIER,
   PREMIUM_MAKES,
+  PRICE_TIERS,
   RANKING_WEIGHTS,
   STALE_AFTER_DAYS,
   type FreshnessBucket,
@@ -76,15 +77,29 @@ const AGE_DAYS = sql`extract(epoch from (now() - coalesce(${carListings.listedAt
  * permanently — which is how a 16-week-old listing became the first card
  * everyone saw.
  *
- * Recency is now a continuous exponential decay multiplied into a quality
- * score, so a fresh mid-priced listing beats a stale expensive one, while an
- * exceptional listing can still climb. Price survives only as a tie-breaker.
+ * Recency is now a decay curve multiplied into a quality score, and price is a
+ * band multiplier rather than a sort key. The decay is bounded below rather
+ * than running to zero: an unbounded exponential made age the only thing that
+ * mattered, so a same-day batch of ₹3 lakh hatchbacks buried every premium
+ * listing older than a few weeks. Bounded, a well-photographed premium car from
+ * last month can still beat a bare mass-market one posted this morning.
  */
+const RECENCY = sql`(
+  ${MIN_RECENCY_MULTIPLIER}::numeric
+  + (1 - ${MIN_RECENCY_MULTIPLIER}::numeric)
+    * exp(-(${AGE_DAYS}) / ${FRESHNESS_HALF_LIFE_DAYS}::numeric)
+)`;
+
+const PRICE_TIER = sql`(case ${sql.join(
+  PRICE_TIERS.filter((tier) => tier.min > 0).map(
+    (tier) => sql`when ${carListings.price} >= ${tier.min} then ${tier.multiplier}::numeric`,
+  ),
+  sql` `,
+)} else 1 end)`;
+
 const RELEVANCE_SCORE = sql`(
-  greatest(
-    exp(-(${AGE_DAYS}) / ${FRESHNESS_HALF_LIFE_DAYS}::numeric),
-    ${MIN_RECENCY_MULTIPLIER}::numeric
-  )
+  ${RECENCY}
+  * ${PRICE_TIER}
   * (case when ${carListings.saleStatus} = 'sold' then ${RANKING_WEIGHTS.soldPenalty}::numeric else 1 end)
   * (case when ${carListings.lastSeenAt} < now() - ${`${STALE_AFTER_DAYS} days`}::interval then ${RANKING_WEIGHTS.stalePenalty}::numeric else 1 end)
   * (case when ${carListings.needsReview} then ${RANKING_WEIGHTS.needsReviewPenalty}::numeric else 1 end)

@@ -54,12 +54,12 @@ export function Filters({ options }: { options: FilterOptions }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <span className="field-label mb-0">Filters</span>
-        {isPending && (
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-accent" aria-label="Updating results" />
-        )}
-      </div>
+      {isPending && (
+        <div className="flex items-center gap-1.5 text-[11px] text-accent">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          Updating results…
+        </div>
+      )}
 
       <DebouncedSearch value={current("search")} onChange={(v) => update("search", v)} />
 
@@ -103,7 +103,7 @@ export function Filters({ options }: { options: FilterOptions }) {
         paramKey="fuelType"
         options={options.fuelTypes.map((o) => ({
           value: o.value,
-          label: o.value,
+          label: displayLabel(o.value),
           count: o.count,
         }))}
         current={current("fuelType")}
@@ -114,7 +114,7 @@ export function Filters({ options }: { options: FilterOptions }) {
         paramKey="transmission"
         options={options.transmissions.map((o) => ({
           value: o.value,
-          label: o.value,
+          label: displayLabel(o.value),
           count: o.count,
         }))}
         current={current("transmission")}
@@ -125,7 +125,7 @@ export function Filters({ options }: { options: FilterOptions }) {
         paramKey="bodyType"
         options={options.bodyTypes.map((o) => ({
           value: o.value,
-          label: o.value,
+          label: displayLabel(o.value),
           count: o.count,
         }))}
         current={current("bodyType")}
@@ -235,6 +235,21 @@ export function Filters({ options }: { options: FilterOptions }) {
       )}
     </div>
   );
+}
+
+/**
+ * Enum values are stored lowercase, and CSS `capitalize` turns "cng" into
+ * "Cng". Acronyms need a real label rather than a text transform.
+ */
+const DISPLAY_LABELS: Record<string, string> = {
+  cng: "CNG",
+  lpg: "LPG",
+  suv: "SUV",
+  muv: "MUV",
+};
+
+function displayLabel(value: string): string {
+  return DISPLAY_LABELS[value] ?? value;
 }
 
 function priceHint(range: { min: number; max: number }): string | null {
