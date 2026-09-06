@@ -20,8 +20,8 @@
  * its URL survive, and a later scrape that sees the car again reactivates it.
  */
 
-import { and, eq, inArray, isNull, lt, notInArray, sql } from "drizzle-orm";
-import { db, carListings } from "@preowned-cars/db";
+import { and, desc, eq, inArray, isNull, lt, notInArray, sql } from "drizzle-orm";
+import { db, carListings, scrapeRuns } from "@preowned-cars/db";
 import { EXPIRE_AFTER_DAYS, STALE_AFTER_DAYS } from "@preowned-cars/shared";
 
 /**
@@ -44,7 +44,7 @@ export async function delistUnseen(
   sourcePlatform: string,
   seenSourceUrls: string[],
 ): Promise<DelistResult> {
-  const [{ activeCount }] = await db
+  const [activeRow] = await db
     .select({ activeCount: sql<number>`count(*)::int` })
     .from(carListings)
     .where(
@@ -53,6 +53,7 @@ export async function delistUnseen(
         eq(carListings.isActive, true),
       ),
     );
+  const activeCount = activeRow?.activeCount ?? 0;
 
   if (seenSourceUrls.length < MIN_SEEN_FOR_SWEEP) {
     return {
@@ -91,29 +92,87 @@ export async function delistUnseen(
   return { delisted: delisted.length, skipped: false, reason: null };
 }
 
+/** When a source last completed a scrape, successfully or with errors. */
+async function lastSuccessfulRunBySource(): Promise<Map<string, Date>> {
+  const rows = await db
+    .select({
+      sourcePlatform: scrapeRuns.sourcePlatform,
+      completedAt: scrapeRuns.completedAt,
+      status: scrapeRuns.status,
+    })
+    .from(scrapeRuns)
+    .orderBy(desc(scrapeRuns.completedAt));
+
+  const out = new Map<string, Date>();
+  for (const row of rows) {
+    if (!row.completedAt) continue;
+    if (row.status !== "completed" && row.status !== "completed_with_errors") continue;
+    if (!out.has(row.sourcePlatform)) out.set(row.sourcePlatform, row.completedAt);
+  }
+  return out;
+}
+
 /**
- * Age-based sweep, independent of any run. Safe to call on a schedule.
+ * Age-based sweep, independent of any run.
+ *
+ * Critically, a listing is only aged out if its source has *successfully
+ * scraped since the listing was last seen*. Without that guard the sweep
+ * punishes listings for the scraper being broken rather than for the car being
+ * gone — when this was first wired up against back-filled data it retired 460
+ * of 500 listings in one pass, including every Instagram row, purely because
+ * the Instagram scraper had been failing. A broken scraper must never be able
+ * to empty the catalogue; that is the failure mode this whole subsystem exists
+ * to prevent.
  */
 export async function delistStale(
   staleAfterDays = STALE_AFTER_DAYS,
 ): Promise<number> {
   const cutoff = new Date(Date.now() - staleAfterDays * 86_400_000);
+  const lastRuns = await lastSuccessfulRunBySource();
+
+  const candidates = await db
+    .select({
+      id: carListings.id,
+      sourcePlatform: carListings.sourcePlatform,
+      lastSeenAt: carListings.lastSeenAt,
+    })
+    .from(carListings)
+    .where(and(eq(carListings.isActive, true), lt(carListings.lastSeenAt, cutoff)));
+
+  const skippedSources = new Set<string>();
+  const toDelist = candidates.filter((row) => {
+    const lastRun = lastRuns.get(row.sourcePlatform);
+    // The source has produced no successful run since we last saw this listing,
+    // so we have no evidence it is gone — only evidence the scraper is stuck.
+    if (!lastRun || lastRun <= row.lastSeenAt) {
+      skippedSources.add(row.sourcePlatform);
+      return false;
+    }
+    return true;
+  });
+
+  for (const source of skippedSources) {
+    console.warn(
+      `[delist] ${source}: skipping stale sweep — no successful run since these listings were last confirmed. Fix the scraper rather than retiring its listings.`,
+    );
+  }
+
+  if (toDelist.length === 0) return 0;
+
   const delisted = await db
     .update(carListings)
     .set({ isActive: false, delistedAt: new Date(), updatedAt: new Date() })
     .where(
-      and(
-        eq(carListings.isActive, true),
-        lt(carListings.lastSeenAt, cutoff),
+      inArray(
+        carListings.id,
+        toDelist.map((row) => row.id),
       ),
     )
     .returning({ id: carListings.id });
 
-  if (delisted.length > 0) {
-    console.log(
-      `[delist] retired ${delisted.length} listing(s) not confirmed in ${staleAfterDays} days`,
-    );
-  }
+  console.log(
+    `[delist] retired ${delisted.length} listing(s) not confirmed in ${staleAfterDays} days`,
+  );
   return delisted.length;
 }
 
@@ -136,9 +195,15 @@ export async function reactivate(sourceUrls: string[]): Promise<number> {
 /** Rows old enough that we no longer want them in any default listing at all. */
 export async function countExpired(): Promise<number> {
   const cutoff = new Date(Date.now() - EXPIRE_AFTER_DAYS * 86_400_000);
-  const [{ total }] = await db
+  const [row] = await db
     .select({ total: sql<number>`count(*)::int` })
     .from(carListings)
-    .where(and(eq(carListings.isActive, true), lt(carListings.lastSeenAt, cutoff), isNull(carListings.delistedAt)));
-  return total;
+    .where(
+      and(
+        eq(carListings.isActive, true),
+        lt(carListings.lastSeenAt, cutoff),
+        isNull(carListings.delistedAt),
+      ),
+    );
+  return row?.total ?? 0;
 }

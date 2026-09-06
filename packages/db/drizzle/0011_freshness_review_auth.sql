@@ -15,9 +15,17 @@ ALTER TABLE "torque"."car_listings"
   ADD COLUMN IF NOT EXISTS "is_cluster_head" boolean DEFAULT true NOT NULL;
 --> statement-breakpoint
 
+-- first_seen_at genuinely is the old scraped_at. last_seen_at deliberately is
+-- NOT back-filled from updated_at: for historical rows that timestamp records
+-- when we last *wrote* the row, not when a scrape last *confirmed* the car
+-- still existed. Seeding it from updated_at made the very first age sweep
+-- retire 460 of 500 listings — every Instagram row included — purely because
+-- the Instagram scraper had been failing for weeks. Seeding it to now() gives
+-- every existing listing one full staleness window of grace, in which a real
+-- scrape establishes the true value.
 UPDATE "torque"."car_listings"
    SET "first_seen_at" = COALESCE("first_seen_at", "scraped_at", now()),
-       "last_seen_at"  = COALESCE("last_seen_at", "updated_at", "scraped_at", now());
+       "last_seen_at"  = COALESCE("last_seen_at", now());
 --> statement-breakpoint
 
 ALTER TABLE "torque"."car_listings"

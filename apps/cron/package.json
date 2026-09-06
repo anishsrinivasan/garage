@@ -1,0 +1,25 @@
+{
+  "name": "@preowned-cars/cron",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "build": "tsc --noEmit",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@preowned-cars/db": "workspace:*",
+    "@preowned-cars/scraper": "workspace:*",
+    "@preowned-cars/shared": "workspace:*",
+    "croner": "^9.0.0",
+    "drizzle-orm": "^0.39.0",
+    "hono": "^4.6.0",
+    "postgres": "^3.4.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.0",
+    "typescript": "^5.7.0"
+  }
+}

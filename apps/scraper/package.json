@@ -27,5 +27,14 @@
   },
   "devDependencies": {
     "typescript": "^5.7.0"
+  },
+  "main": "./src/api.ts",
+  "types": "./src/api.ts",
+  "exports": {
+    ".": "./src/api.ts",
+    "./runner": "./src/runner.ts",
+    "./dedupe": "./src/dedupe.ts",
+    "./delist": "./src/delist.ts",
+    "./onboarding": "./src/garage-onboarding.ts"
   }
 }

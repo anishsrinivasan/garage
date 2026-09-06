@@ -1,0 +1,52 @@
+# Dokploy "Docker Compose" deployment for the scraper cron service.
+#
+# Point Dokploy at this repository, set the compose path to
+# apps/cron/docker-compose.yml, and supply the environment below in the
+# Dokploy UI rather than committing it.
+#
+# The build context is the repo root (`../..`) because the Bun workspace needs
+# the sibling packages to resolve.
+
+services:
+  cron:
+    build:
+      context: ../..
+      dockerfile: apps/cron/Dockerfile
+    restart: unless-stopped
+    environment:
+      # --- required ---
+      DATABASE_URL: ${DATABASE_URL}
+      CRON_API_TOKEN: ${CRON_API_TOKEN}
+      # --- LLM extraction + image scoring ---
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      LLM_MODEL: ${LLM_MODEL:-gemini-2.5-flash}
+      # --- media storage (strongly recommended: Instagram CDN URLs expire) ---
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+      R2_BUCKET: ${R2_BUCKET}
+      R2_PUBLIC_BASE_URL: ${R2_PUBLIC_BASE_URL}
+      # --- schedule (IST) ---
+      CRON_ENABLED: ${CRON_ENABLED:-true}
+      CRON_SCRAPE_SCHEDULE: ${CRON_SCRAPE_SCHEDULE:-30 3 * * *}
+      CRON_MAINTENANCE_SCHEDULE: ${CRON_MAINTENANCE_SCHEDULE:-15 * * * *}
+      CRON_TIMEZONE: ${CRON_TIMEZONE:-Asia/Kolkata}
+      CRON_RUN_ON_START: ${CRON_RUN_ON_START:-false}
+      # --- cache busting on the public site ---
+      WEB_REVALIDATE_URL: ${WEB_REVALIDATE_URL}
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET}
+      NODE_ENV: production
+      PORT: "3333"
+    ports:
+      - "3333"
+    volumes:
+      # The Instagram session cookie must survive redeploys — re-authenticating
+      # is a manual step, and an expired session is exactly how the scraper
+      # failed silently for fifteen weeks.
+      - instagram-session:/app/apps/scraper/.session
+    # Chromium needs more than the default 64MB of shared memory or it crashes
+    # partway through a run with no useful error.
+    shm_size: 1gb
+
+volumes:
+  instagram-session:
