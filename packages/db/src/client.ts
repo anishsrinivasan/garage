@@ -2,11 +2,6 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres, { type Sql } from "postgres";
 import * as schema from "./schema";
 
-const connectionString = process.env.DATABASE_URL;
-if (!connectionString) {
-  throw new Error("DATABASE_URL environment variable is required");
-}
-
 // Without PgBouncer we must aggressively cap client-side pool size. A Next.js
 // dev server + HMR, CLI scripts, and serverless invocations otherwise each
 // open their own 10-connection pool and quickly exhaust the server.
@@ -27,18 +22,52 @@ declare global {
 // query, so we don't need search_path at runtime. For raw psql or Drizzle
 // Studio, set it locally with `SET search_path TO torque, public;` or via
 // the connection URL when using a non-pooled session.
-const sql: Sql =
-  globalThis.__preowned_cars_db_sql__ ??
-  postgres(connectionString, {
-    max: MAX_CONNECTIONS,
-    idle_timeout: IDLE_TIMEOUT,
-    connect_timeout: CONNECT_TIMEOUT,
-    prepare: false,
-  });
+function createSql(): Sql {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error("DATABASE_URL environment variable is required");
+  }
 
-if (process.env.NODE_ENV !== "production") {
-  globalThis.__preowned_cars_db_sql__ = sql;
+  const sql =
+    globalThis.__preowned_cars_db_sql__ ??
+    postgres(connectionString, {
+      max: MAX_CONNECTIONS,
+      idle_timeout: IDLE_TIMEOUT,
+      connect_timeout: CONNECT_TIMEOUT,
+      prepare: false,
+    });
+
+  if (process.env.NODE_ENV !== "production") {
+    globalThis.__preowned_cars_db_sql__ = sql;
+  }
+  return sql;
 }
 
-export const db = drizzle(sql, { schema });
-export type Database = typeof db;
+type DrizzleDb = ReturnType<typeof drizzle<typeof schema>>;
+
+let instance: DrizzleDb | null = null;
+
+function getDb(): DrizzleDb {
+  instance ??= drizzle(createSql(), { schema });
+  return instance;
+}
+
+/**
+ * Connects lazily on first use rather than at import.
+ *
+ * This module used to throw from its top level when `DATABASE_URL` was unset,
+ * which meant `next build` failed while merely *collecting* page data for any
+ * route that imported it — even routes that never query at build time. Deferring
+ * the connection lets a build succeed without database credentials while still
+ * failing loudly, with the same message, the moment a query is actually run.
+ */
+export const db: DrizzleDb = new Proxy({} as DrizzleDb, {
+  get(_target, property, receiver) {
+    return Reflect.get(getDb(), property, receiver);
+  },
+  has(_target, property) {
+    return Reflect.has(getDb(), property);
+  },
+});
+
+export type Database = DrizzleDb;

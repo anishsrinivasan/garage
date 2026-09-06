@@ -16,16 +16,21 @@ export const CRORE = 10_000_000;
 export const MIN_PRICE = 25_000;
 export const MAX_PRICE = 200_000_000;
 
-const NUM = String.raw`(\d{1,3}(?:,\d{2,3})*(?:\.\d+)?|\d+(?:\.\d+)?)`;
+// The comma-grouped alternative requires at least one comma group. With `*`
+// it also matched plain digits, but only the first three of them — so
+// "4500000" parsed as 450 and then failed the minimum-price check.
+const NUM = String.raw`(\d{1,3}(?:,\d{2,3})+(?:\.\d+)?|\d+(?:\.\d+)?)`;
 
 // Ordered most-specific first: `cr` must beat `c`, `lakh` must beat `l`.
 const UNIT_PATTERNS: Array<{ re: RegExp; multiplier: number }> = [
   { re: new RegExp(`${NUM}\\s*(?:crores?|crs?\\b|cr\\b)`, "gi"), multiplier: CRORE },
   { re: new RegExp(`${NUM}\\s*(?:lakhs?|lacs?|lakh|lac)\\b`, "gi"), multiplier: LAKH },
-  // Bare `L` suffix, as in `₹45L` / `45 L`. Requires a currency marker or a
-  // word boundary so we don't read "45 Litres" as a price.
-  { re: new RegExp(`${NUM}\\s*l\\b(?!\\s*(?:itre|iter))`, "gi"), multiplier: LAKH },
-  { re: new RegExp(`${NUM}\\s*k\\b`, "gi"), multiplier: 1_000 },
+  // Bare `L` suffix, as in `₹45L`. A currency marker is REQUIRED here: without
+  // one, "BMW M340I 3.0L Petrol" reads as ₹3 lakh, which is exactly the false
+  // positive this pattern produced against real dealer captions.
+  { re: new RegExp(`₹\\s*${NUM}\\s*l\\b(?!\\s*(?:itre|iter))`, "gi"), multiplier: LAKH },
+  // Same reasoning for `k`: "45k km" is an odometer reading, not a price.
+  { re: new RegExp(`₹\\s*${NUM}\\s*k\\b`, "gi"), multiplier: 1_000 },
 ];
 
 function toNumber(raw: string): number | null {
@@ -39,7 +44,10 @@ function toNumber(raw: string): number | null {
  */
 export function parseIndianPrice(text: string | null | undefined): number | null {
   if (!text) return null;
-  const cleaned = text.replace(/[₹]/g, " ").replace(/\brs\.?\b/gi, " ");
+  // Normalise `Rs` to `₹` rather than stripping currency markers: the bare-`L`
+  // and bare-`k` patterns require one, so removing it would make "₹45L"
+  // unparseable.
+  const cleaned = text.replace(/\brs\.?\b/gi, "₹");
 
   for (const { re, multiplier } of UNIT_PATTERNS) {
     re.lastIndex = 0;
@@ -78,6 +86,9 @@ export function extractPriceCandidates(caption: string | null | undefined): numb
       // `2021 L` would be a year followed by a stray letter — a 4-digit number
       // with a lakh suffix above 500 is not a price anyone writes.
       if (multiplier === LAKH && value > 500) continue;
+      // A sub-₹1L "price" in a dealer caption is almost always an engine
+      // displacement or a deposit, not the asking price.
+      if (multiplier === LAKH && value < 1) continue;
       if (multiplier === CRORE && value > 50) continue;
       const rupees = Math.round(value * multiplier);
       if (rupees >= MIN_PRICE && rupees <= MAX_PRICE) candidates.push(rupees);
