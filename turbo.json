@@ -1,15 +1,36 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "globalEnv": [
-    "DATABASE_URL",
     "ANTHROPIC_API_KEY",
+    "BETTER_AUTH_SECRET",
+    "BETTER_AUTH_URL",
+    "CRON_API_TOKEN",
+    "CRON_ENABLED",
+    "CRON_MAINTENANCE_SCHEDULE",
+    "CRON_RUN_ON_START",
+    "CRON_SCRAPE_SCHEDULE",
+    "CRON_SERVICE_URL",
+    "CRON_TIMEZONE",
+    "DATABASE_CONNECT_TIMEOUT",
+    "DATABASE_DIRECT_URL",
+    "DATABASE_IDLE_TIMEOUT",
+    "DATABASE_POOL_MAX",
+    "DATABASE_URL",
     "GOOGLE_API_KEY",
-    "R2_ACCOUNT_ID",
+    "GOOGLE_GENERATIVE_AI_API_KEY",
+    "LLM_MAX_RETRIES",
+    "LLM_MODEL",
+    "LLM_PROVIDER",
+    "NEXT_PUBLIC_BETTER_AUTH_URL",
+    "NEXT_PUBLIC_SITE_URL",
+    "NEXT_PUBLIC_WEB_URL",
     "R2_ACCESS_KEY_ID",
-    "R2_SECRET_ACCESS_KEY",
+    "R2_ACCOUNT_ID",
     "R2_BUCKET",
     "R2_PUBLIC_BASE_URL",
-    "LLM_MODEL"
+    "R2_SECRET_ACCESS_KEY",
+    "REVALIDATE_SECRET",
+    "WEB_REVALIDATE_URL"
   ],
   "tasks": {
     "build": {
@@ -17,7 +38,9 @@
         "^build"
       ],
       "outputs": [
-        "dist/**"
+        "dist/**",
+        ".next/**",
+        "!.next/cache/**"
       ]
     },
     "dev": {

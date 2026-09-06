@@ -17,7 +17,13 @@
     "db:push": "bun --env-file=.env x drizzle-kit push --config packages/db/drizzle.config.ts",
     "db:generate": "bun --env-file=.env x drizzle-kit generate --config packages/db/drizzle.config.ts",
     "db:migrate": "bun --env-file=.env x drizzle-kit migrate --config packages/db/drizzle.config.ts",
-    "db:studio": "bun --env-file=.env x drizzle-kit studio --config packages/db/drizzle.config.ts"
+    "db:studio": "bun --env-file=.env x drizzle-kit studio --config packages/db/drizzle.config.ts",
+    "dev:web": "bun run --cwd apps/web dev",
+    "dev:admin": "bun run --cwd apps/admin dev",
+    "dev:cron": "bun run --cwd apps/cron dev",
+    "scrape:maintenance": "bun run apps/scraper/src/index.ts --source maintenance",
+    "admin:create-user": "bun run --cwd apps/admin create-user",
+    "typecheck": "turbo lint"
   },
   "devDependencies": {
     "turbo": "^2.4.0",
