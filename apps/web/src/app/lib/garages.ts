@@ -1,4 +1,4 @@
-import { db, garages, listings, dealerSources } from "@preowned-cars/db";
+import { db, garages, listings, dealerSources } from "@classifieds/db";
 import { and, asc, count, desc, eq, sql } from "drizzle-orm";
 
 export type GarageKind = "dealer" | "marketplace";

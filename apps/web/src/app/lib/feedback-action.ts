@@ -1,6 +1,6 @@
 "use server";
 
-import { db, feedback } from "@preowned-cars/db";
+import { db, feedback } from "@classifieds/db";
 
 export async function submitFeedback(data: {
   category: string;

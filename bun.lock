@@ -2,21 +2,21 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
-      "name": "preowned-cars",
+      "name": "classifieds",
       "devDependencies": {
         "turbo": "^2.4.0",
         "typescript": "^5.7.0",
       },
     },
     "apps/admin": {
-      "name": "@preowned-cars/admin",
+      "name": "@classifieds/admin",
       "version": "0.0.1",
       "dependencies": {
-        "@preowned-cars/db": "workspace:*",
-        "@preowned-cars/pipeline": "workspace:*",
-        "@preowned-cars/scraper": "workspace:*",
-        "@preowned-cars/shared": "workspace:*",
-        "@preowned-cars/verticals": "workspace:*",
+        "@classifieds/db": "workspace:*",
+        "@classifieds/pipeline": "workspace:*",
+        "@classifieds/scraper": "workspace:*",
+        "@classifieds/shared": "workspace:*",
+        "@classifieds/verticals": "workspace:*",
         "better-auth": "^1.2.0",
         "drizzle-orm": "^0.39.0",
         "lucide-react": "^1.8.0",
@@ -36,13 +36,13 @@
       },
     },
     "apps/cron": {
-      "name": "@preowned-cars/cron",
+      "name": "@classifieds/cron",
       "version": "0.0.1",
       "dependencies": {
-        "@preowned-cars/db": "workspace:*",
-        "@preowned-cars/pipeline": "workspace:*",
-        "@preowned-cars/scraper": "workspace:*",
-        "@preowned-cars/shared": "workspace:*",
+        "@classifieds/db": "workspace:*",
+        "@classifieds/pipeline": "workspace:*",
+        "@classifieds/scraper": "workspace:*",
+        "@classifieds/shared": "workspace:*",
         "croner": "^9.0.0",
         "drizzle-orm": "^0.39.0",
         "hono": "^4.6.0",
@@ -54,15 +54,15 @@
       },
     },
     "apps/mcp": {
-      "name": "@preowned-cars/mcp",
+      "name": "@classifieds/mcp",
       "version": "0.0.1",
       "bin": {
-        "torque-mcp": "./src/index.ts",
+        "classifieds-mcp": "./src/index.ts",
       },
       "dependencies": {
         "@modelcontextprotocol/sdk": "^1.0.0",
-        "@preowned-cars/db": "workspace:*",
-        "@preowned-cars/shared": "workspace:*",
+        "@classifieds/db": "workspace:*",
+        "@classifieds/shared": "workspace:*",
         "drizzle-orm": "^0.39.0",
         "postgres": "^3.4.0",
         "zod": "^3.25.0",
@@ -73,17 +73,17 @@
       },
     },
     "apps/scraper": {
-      "name": "@preowned-cars/scraper",
+      "name": "@classifieds/scraper",
       "version": "0.0.1",
       "dependencies": {
         "@ai-sdk/anthropic": "^3.0.69",
         "@ai-sdk/google": "^3.0.63",
         "@anthropic-ai/sdk": "^0.39.0",
         "@aws-sdk/client-s3": "^3.1030.0",
-        "@preowned-cars/db": "workspace:*",
-        "@preowned-cars/pipeline": "workspace:*",
-        "@preowned-cars/shared": "workspace:*",
-        "@preowned-cars/verticals": "workspace:*",
+        "@classifieds/db": "workspace:*",
+        "@classifieds/pipeline": "workspace:*",
+        "@classifieds/shared": "workspace:*",
+        "@classifieds/verticals": "workspace:*",
         "ai": "^6.0.159",
         "cheerio": "^1.0.0",
         "drizzle-orm": "^0.39.0",
@@ -96,12 +96,12 @@
       },
     },
     "apps/web": {
-      "name": "@preowned-cars/web",
+      "name": "@classifieds/web",
       "version": "0.0.1",
       "dependencies": {
-        "@preowned-cars/db": "workspace:*",
-        "@preowned-cars/shared": "workspace:*",
-        "@preowned-cars/verticals": "workspace:*",
+        "@classifieds/db": "workspace:*",
+        "@classifieds/shared": "workspace:*",
+        "@classifieds/verticals": "workspace:*",
         "drizzle-orm": "^0.39.0",
         "lucide-react": "^1.8.0",
         "next": "^15.2.0",
@@ -120,7 +120,7 @@
       },
     },
     "packages/db": {
-      "name": "@preowned-cars/db",
+      "name": "@classifieds/db",
       "version": "0.0.1",
       "dependencies": {
         "drizzle-orm": "^0.39.0",
@@ -132,15 +132,15 @@
       },
     },
     "packages/pipeline": {
-      "name": "@preowned-cars/pipeline",
+      "name": "@classifieds/pipeline",
       "version": "0.0.1",
       "dependencies": {
         "@ai-sdk/anthropic": "^3.0.69",
         "@ai-sdk/google": "^3.0.63",
         "@ai-sdk/openai-compatible": "2.0.74",
         "@aws-sdk/client-s3": "^3.1030.0",
-        "@preowned-cars/db": "workspace:*",
-        "@preowned-cars/shared": "workspace:*",
+        "@classifieds/db": "workspace:*",
+        "@classifieds/shared": "workspace:*",
         "ai": "^6.0.159",
         "drizzle-orm": "^0.39.0",
         "playwright": "^1.50.0",
@@ -151,20 +151,20 @@
       },
     },
     "packages/shared": {
-      "name": "@preowned-cars/shared",
+      "name": "@classifieds/shared",
       "version": "0.0.1",
       "devDependencies": {
         "typescript": "^5.7.0",
       },
     },
     "packages/verticals": {
-      "name": "@preowned-cars/verticals",
+      "name": "@classifieds/verticals",
       "version": "0.0.1",
       "dependencies": {
         "@ai-sdk/provider-utils": "^4.0.0",
-        "@preowned-cars/db": "workspace:*",
-        "@preowned-cars/pipeline": "workspace:*",
-        "@preowned-cars/shared": "workspace:*",
+        "@classifieds/db": "workspace:*",
+        "@classifieds/pipeline": "workspace:*",
+        "@classifieds/shared": "workspace:*",
         "drizzle-orm": "^0.39.0",
         "zod": "^4.3.6",
       },
@@ -438,23 +438,23 @@
 
     "@petamoriken/float16": ["@petamoriken/float16@3.9.3", "", {}, "sha512-8awtpHXCx/bNpFt4mt2xdkgtgVvKqty8VbjHI/WWWQuEw+KLzFot3f4+LkQY9YmOtq7A5GdOnqoIC8Pdygjk2g=="],
 
-    "@preowned-cars/admin": ["@preowned-cars/admin@workspace:apps/admin"],
+    "@classifieds/admin": ["@classifieds/admin@workspace:apps/admin"],
 
-    "@preowned-cars/cron": ["@preowned-cars/cron@workspace:apps/cron"],
+    "@classifieds/cron": ["@classifieds/cron@workspace:apps/cron"],
 
-    "@preowned-cars/db": ["@preowned-cars/db@workspace:packages/db"],
+    "@classifieds/db": ["@classifieds/db@workspace:packages/db"],
 
-    "@preowned-cars/mcp": ["@preowned-cars/mcp@workspace:apps/mcp"],
+    "@classifieds/mcp": ["@classifieds/mcp@workspace:apps/mcp"],
 
-    "@preowned-cars/pipeline": ["@preowned-cars/pipeline@workspace:packages/pipeline"],
+    "@classifieds/pipeline": ["@classifieds/pipeline@workspace:packages/pipeline"],
 
-    "@preowned-cars/scraper": ["@preowned-cars/scraper@workspace:apps/scraper"],
+    "@classifieds/scraper": ["@classifieds/scraper@workspace:apps/scraper"],
 
-    "@preowned-cars/shared": ["@preowned-cars/shared@workspace:packages/shared"],
+    "@classifieds/shared": ["@classifieds/shared@workspace:packages/shared"],
 
-    "@preowned-cars/verticals": ["@preowned-cars/verticals@workspace:packages/verticals"],
+    "@classifieds/verticals": ["@classifieds/verticals@workspace:packages/verticals"],
 
-    "@preowned-cars/web": ["@preowned-cars/web@workspace:apps/web"],
+    "@classifieds/web": ["@classifieds/web@workspace:apps/web"],
 
     "@smithy/chunked-blob-reader": ["@smithy/chunked-blob-reader@5.2.2", "", { "dependencies": { "tslib": "^2.6.2" } }, "sha512-St+kVicSyayWQca+I1rGitaOEH6uKgE8IUWoYnnEX26SWdWQcL6LvMSD19Lg+vYHKdT9B2Zuu7rd3i6Wnyb/iw=="],
 
@@ -1090,11 +1090,11 @@
 
     "@modelcontextprotocol/sdk/zod": ["zod@4.5.4", "", {}, "sha512-sC95tT5iHHH9gtpj6A81kh+NEaRAUFN+qlUPDUbRfOMvNf5QCBqsb3WgvnpVtK5Y+4UfA6KqufotuTvMGiTlsA=="],
 
-    "@preowned-cars/pipeline/zod": ["zod@4.5.4", "", {}, "sha512-sC95tT5iHHH9gtpj6A81kh+NEaRAUFN+qlUPDUbRfOMvNf5QCBqsb3WgvnpVtK5Y+4UfA6KqufotuTvMGiTlsA=="],
+    "@classifieds/pipeline/zod": ["zod@4.5.4", "", {}, "sha512-sC95tT5iHHH9gtpj6A81kh+NEaRAUFN+qlUPDUbRfOMvNf5QCBqsb3WgvnpVtK5Y+4UfA6KqufotuTvMGiTlsA=="],
 
-    "@preowned-cars/scraper/zod": ["zod@4.5.4", "", {}, "sha512-sC95tT5iHHH9gtpj6A81kh+NEaRAUFN+qlUPDUbRfOMvNf5QCBqsb3WgvnpVtK5Y+4UfA6KqufotuTvMGiTlsA=="],
+    "@classifieds/scraper/zod": ["zod@4.5.4", "", {}, "sha512-sC95tT5iHHH9gtpj6A81kh+NEaRAUFN+qlUPDUbRfOMvNf5QCBqsb3WgvnpVtK5Y+4UfA6KqufotuTvMGiTlsA=="],
 
-    "@preowned-cars/verticals/zod": ["zod@4.5.4", "", {}, "sha512-sC95tT5iHHH9gtpj6A81kh+NEaRAUFN+qlUPDUbRfOMvNf5QCBqsb3WgvnpVtK5Y+4UfA6KqufotuTvMGiTlsA=="],
+    "@classifieds/verticals/zod": ["zod@4.5.4", "", {}, "sha512-sC95tT5iHHH9gtpj6A81kh+NEaRAUFN+qlUPDUbRfOMvNf5QCBqsb3WgvnpVtK5Y+4UfA6KqufotuTvMGiTlsA=="],
 
     "@types/node-fetch/@types/node": ["@types/node@18.19.130", "", { "dependencies": { "undici-types": "~5.26.4" } }, "sha512-GRaXQx6jGfL8sKfaIDD6OupbIHBr9jv7Jnaml9tB7l4v068PAOXqfcujMMo5PhbIs6ggR1XODELqahT2R8v0fg=="],
 

@@ -90,7 +90,7 @@ export function FeedbackModal() {
               <Send className="h-5 w-5" />
             </div>
             <p className="font-display text-lg font-semibold">Thanks for your feedback</p>
-            <p className="text-sm text-ink-400">We appreciate you helping us improve Torque.</p>
+            <p className="text-sm text-ink-400">We appreciate you helping us improve Classifieds.</p>
           </div>
         ) : (
           <>
@@ -98,7 +98,7 @@ export function FeedbackModal() {
               Send Feedback
             </h2>
             <p className="mt-1 text-sm text-ink-400">
-              Help us make Torque better for car people.
+              Help us make Classifieds better for car people.
             </p>
 
             <div className="mt-5 space-y-4">

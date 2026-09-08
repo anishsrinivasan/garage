@@ -16,7 +16,7 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("[torque] render error", error);
+    console.error("[classifieds] render error", error);
   }, [error]);
 
   return (

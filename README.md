@@ -1,4 +1,4 @@
-# Torque
+# Classifieds
 
 A curated, deduplicated feed of preowned car listings in India, gathered from
 Cars24, CarDekho, and Instagram dealers.

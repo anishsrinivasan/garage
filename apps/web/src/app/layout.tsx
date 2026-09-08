@@ -25,7 +25,7 @@ const mono = JetBrains_Mono({
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-const TITLE = "Torque — Preowned Cars, Curated";
+const TITLE = "Classifieds — Preowned Cars, Curated";
 const DESCRIPTION =
   "A curated, real-time dashboard of preowned car listings across India — from Cars24, CarDekho, OLX, and trusted Instagram dealers. Deduplicated, normalized, searchable.";
 
@@ -33,11 +33,11 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     default: TITLE,
-    template: "%s · Torque",
+    template: "%s · Classifieds",
   },
   description: DESCRIPTION,
-  applicationName: "Torque",
-  authors: [{ name: "Torque" }],
+  applicationName: "Classifieds",
+  authors: [{ name: "Classifieds" }],
   keywords: [
     "preowned cars",
     "used cars india",
@@ -62,7 +62,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
-    siteName: "Torque",
+    siteName: "Classifieds",
     title: TITLE,
     description: DESCRIPTION,
     url: SITE_URL,
@@ -117,7 +117,7 @@ export default function RootLayout({
                 <span className="absolute -inset-1 -z-10 rounded-xl bg-accent-gradient opacity-40 blur-md" />
               </span>
               <span className="font-display text-[17px] font-bold tracking-tight">
-                Torque
+                Classifieds
                 <span className="ml-1 rounded-md border border-white/10 bg-white/5 px-1.5 py-0.5 font-sans text-[9px] font-semibold uppercase tracking-wider text-ink-300">
                   IN
                 </span>
@@ -161,7 +161,7 @@ export default function RootLayout({
               <span className="h-1.5 w-1.5 animate-pulse-glow rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
               <span>Listings verified against their source on every scrape</span>
             </div>
-            <p>© {new Date().getFullYear()} Torque · Built for car people</p>
+            <p>© {new Date().getFullYear()} Classifieds · Built for car people</p>
           </div>
         </footer>
       </body>

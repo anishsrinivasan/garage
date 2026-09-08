@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "Torque — Preowned Cars, Curated";
+export const alt = "Classifieds — Preowned Cars, Curated";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -49,7 +49,7 @@ export default function OpenGraphImage() {
               letterSpacing: "-0.02em",
             }}
           >
-            <span>Torque</span>
+            <span>Classifieds</span>
             <span
               style={{
                 padding: "4px 10px",

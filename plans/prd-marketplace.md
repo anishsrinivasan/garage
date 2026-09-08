@@ -2,13 +2,13 @@
 
 **Status:** proposal for a direction decision. Nothing here is built.
 **Date:** 2026-09-08
-**Author:** drafted from a read of the Torque codebase + its production data
+**Author:** drafted from a read of the Classifieds codebase + its production data
 
 ---
 
 ## 1. The bet
 
-Torque proved something more general than "we can list used cars."
+Classifieds proved something more general than "we can list used cars."
 
 It proved that **a large amount of real, transactable Indian inventory lives on
 Instagram, and it is completely unsearchable.** 646 posts processed, 415 of them
@@ -55,7 +55,7 @@ A second vertical is a schema-and-prompt exercise, not a rewrite. That is the
 single most important fact in this document, and it is why the recommendation
 below is not "start a new app."
 
-### What Torque also proved works
+### What Classifieds also proved works
 
 - **Vision-scored thumbnails.** Front-three-quarter shots scored 90–95; a
   collage reel cover scored 30. This is the difference between a listing that
@@ -88,7 +88,7 @@ because the index contains listings Google does not have. See §7.
 
 ## 4. Recommendation: one engine, second vertical, same repo
 
-**Launch Chennai rentals on the Torque pipeline within 6 weeks. Keep Torque as
+**Launch Chennai rentals on the Classifieds pipeline within 6 weeks. Keep Classifieds as
 the cars brand. One codebase, two verticals, shared engine.**
 
 Why rentals specifically:

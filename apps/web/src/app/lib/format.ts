@@ -1,4 +1,4 @@
-import { relativeAge, ageTone, daysBetween, type AgeTone } from "@preowned-cars/shared";
+import { relativeAge, ageTone, daysBetween, type AgeTone } from "@classifieds/shared";
 
 export { relativeAge, ageTone, daysBetween };
 export type { AgeTone };

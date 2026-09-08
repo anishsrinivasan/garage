@@ -1,6 +1,6 @@
 "use server";
 
-import { db, listingReports } from "@preowned-cars/db";
+import { db, listingReports } from "@classifieds/db";
 
 export async function submitListingReport(data: {
   listingId: string;
