@@ -11,6 +11,7 @@ import { and, eq } from "drizzle-orm";
 import { db, dealerSources, garages } from "@classifieds/db";
 import { createInstagramAdapter } from "./adapters/instagram";
 import { createCars24Adapter } from "./adapters/cars24";
+import { createOlxAdapter } from "./adapters/olx";
 import { createCardekhoAdapter } from "./adapters/cardekho";
 import { createInstagramRentalsAdapter } from "./adapters/instagram-rentals";
 import { runAdapter, type RunOptions } from "./runner";
@@ -18,12 +19,20 @@ import { delistStale, deliverPendingAlerts } from "@classifieds/pipeline";
 import { rebuildDedupeClusters } from "./dedupe-runner";
 import type { ScraperAdapter } from "@classifieds/shared";
 
-export type SourceName = "instagram" | "instagram-rentals" | "cars24" | "cardekho";
+export type SourceName =
+  | "instagram"
+  | "instagram-rentals"
+  | "cars24"
+  | "cardekho"
+  | "olx";
 
 export const ALL_SOURCES: SourceName[] = [
   "instagram",
   "instagram-rentals",
   "cars24",
+  // Headful-only: OLX's bot check rejects headless outright. Needs a display,
+  // so it is excluded from environments without one — see olx-config.ts.
+  "olx",
   "cardekho",
 ];
 
@@ -104,6 +113,7 @@ export async function buildAdapters(
   }
 
   if (sources.includes("cars24")) adapters.push(createCars24Adapter());
+  if (sources.includes("olx")) adapters.push(createOlxAdapter());
   if (sources.includes("cardekho")) adapters.push(createCardekhoAdapter());
 
   return adapters;

@@ -6,7 +6,7 @@ import type {
   ScrapeError,
   NormalizedListing,
 } from "@classifieds/shared";
-import { OLX_CONFIG } from "./olx-config";
+import { OLX_CONFIG, olxLaunchOptions, olxSearchUrl } from "./olx-config";
 import { parseIndianPrice } from "../utils/price";
 
 type OlxListingCard = {
@@ -76,8 +76,24 @@ function parseOwnerCount(text: string): number | null {
   return match ? parseInt(match[1]!, 10) : null;
 }
 
+/**
+ * Reads the result cards.
+ *
+ * OLX has removed the `data-aut-id` attributes this used to key on — they now
+ * return zero — and the surviving class names are build-hashed (`_3V_Ww`), so
+ * they are worthless as selectors. The stable structure is the item link and
+ * the list item around it, and the fields come out of `innerText`, which keeps
+ * one line per block. The lines are matched on shape rather than position,
+ * because the posted date moves around within the card:
+ *
+ *   cars    ["FEATURED", "₹ 10,40,000", "Aug 22", "2024 - 24,000 km",
+ *            "Hyundai Venue", "Chennai Central"]
+ *   rentals ["FEATURED", "₹ 16,000", "2 BHK - 2 Bathroom - 800 sqft",
+ *            "<title>", "TRIPLICANE, CHENNAI", "AUG 30"]
+ */
 async function extractListingCards(page: Page): Promise<OlxListingCard[]> {
   return page.evaluate(() => {
+    const seen = new Set<string>();
     const cards: {
       title: string;
       price: string;
@@ -87,63 +103,49 @@ async function extractListingCards(page: Page): Promise<OlxListingCard[]> {
       meta: string;
     }[] = [];
 
-    const listItems = Array.from(document.querySelectorAll('[data-aut-id="itemBox"]'));
+    for (const anchor of Array.from(document.querySelectorAll('a[href*="/item/"]'))) {
+      const href = anchor.getAttribute("href");
+      if (!href || seen.has(href)) continue;
+      seen.add(href);
 
-    for (const item of listItems) {
-      const anchor = item.querySelector("a");
-      if (!anchor) continue;
+      const card = anchor.closest("li") ?? anchor.parentElement;
+      if (!card) continue;
 
-      const titleEl =
-        item.querySelector('[data-aut-id="itemTitle"]') ??
-        item.querySelector('[class*="title"]');
-      const priceEl =
-        item.querySelector('[data-aut-id="itemPrice"]') ??
-        item.querySelector('[class*="price"]');
-      const locationEl =
-        item.querySelector('[data-aut-id="item-location"]') ??
-        item.querySelector('[class*="location"]');
-      const imgEl = item.querySelector("img");
+      const lines = (card as HTMLElement).innerText
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .filter((l) => l.toUpperCase() !== "FEATURED");
 
-      const title = titleEl?.textContent?.trim() ?? "";
-      const price = priceEl?.textContent?.trim() ?? "";
-      const location = locationEl?.textContent?.trim() ?? "";
-      const url = anchor.href ?? "";
-      const imageUrl = imgEl?.src ?? imgEl?.getAttribute("data-src") ?? "";
-      const meta = item.textContent ?? "";
+      const price = lines.find((l) => l.includes("₹")) ?? "";
+      // Cars carry "2024 - 24,000 km"; rentals "2 BHK - 2 Bathroom - 800 sqft".
+      const meta =
+        lines.find((l) => /\d{4}\s*-\s*[\d,]+\s*km/i.test(l)) ??
+        lines.find((l) => /\d+\s*BHK/i.test(l)) ??
+        "";
+      // A date, not a place: "Aug 22", "2 DAYS AGO", "TODAY".
+      const isDate = (l: string) =>
+        /^\d+\s+(day|hour|minute|week|month)s?\s+ago$/i.test(l) ||
+        /^(today|yesterday)$/i.test(l) ||
+        /^[a-z]{3}\s+\d{1,2}$/i.test(l);
+      const location =
+        lines.filter((l) => /chennai/i.test(l) && !isDate(l)).pop() ??
+        lines.filter((l) => l !== price && l !== meta && !isDate(l)).pop() ??
+        "";
+      const title =
+        lines.find(
+          (l) => l !== price && l !== meta && l !== location && !isDate(l),
+        ) ?? "";
 
-      if (title && price && url) {
-        cards.push({ title, price, location, url, imageUrl, meta });
-      }
-    }
-
-    if (cards.length === 0) {
-      const fallbackItems = Array.from(document.querySelectorAll(
-        'li[class*="card"], div[class*="card"], a[href*="/item/"]'
-      ));
-      for (const item of fallbackItems) {
-        const anchor =
-          item.tagName === "A" ? (item as HTMLAnchorElement) : item.querySelector("a");
-        if (!anchor) continue;
-
-        const title =
-          item.querySelector("h2, h3, [class*='title']")?.textContent?.trim() ?? "";
-        const price = item.querySelector("[class*='price']")?.textContent?.trim() ?? "";
-        const location =
-          item.querySelector("[class*='location']")?.textContent?.trim() ?? "";
-        const imgEl = item.querySelector("img");
-        const imageUrl = imgEl?.src ?? "";
-
-        if (title && price) {
-          cards.push({
-            title,
-            price,
-            location,
-            url: (anchor as HTMLAnchorElement).href ?? "",
-            imageUrl,
-            meta: item.textContent ?? "",
-          });
-        }
-      }
+      const img = card.querySelector("img");
+      cards.push({
+        title,
+        price,
+        location,
+        url: href.startsWith("http") ? href : `https://www.olx.in${href}`,
+        imageUrl: img?.getAttribute("src") ?? "",
+        meta,
+      });
     }
 
     return cards;
@@ -259,14 +261,8 @@ export function createOlxAdapter(): ScraperAdapter {
       let browser: Browser | null = null;
 
       try {
-        browser = await chromium.launch({
-          headless: true,
-          args: [
-            "--disable-blink-features=AutomationControlled",
-            "--no-sandbox",
-            "--disable-setuid-sandbox",
-          ],
-        });
+        // Headful is load-bearing; see olx-config.ts. Needs xvfb on a server.
+        browser = await chromium.launch(olxLaunchOptions());
 
         const context = await browser.newContext({
           userAgent:
@@ -280,10 +276,7 @@ export function createOlxAdapter(): ScraperAdapter {
         page.setDefaultTimeout(OLX_CONFIG.pageLoadTimeoutMs);
 
         for (let pageNum = 1; pageNum <= OLX_CONFIG.maxPages; pageNum++) {
-          const pageUrl =
-            pageNum === 1
-              ? `${OLX_CONFIG.baseUrl}${OLX_CONFIG.searchPath}?filter=city_eq_${OLX_CONFIG.cityParam}`
-              : `${OLX_CONFIG.baseUrl}${OLX_CONFIG.searchPath}?filter=city_eq_${OLX_CONFIG.cityParam}&page=${pageNum}`;
+          const pageUrl = olxSearchUrl(OLX_CONFIG, pageNum);
 
           try {
             console.log(`[olx] Loading search page ${pageNum}: ${pageUrl}`);
@@ -427,9 +420,9 @@ export function createOlxAdapter(): ScraperAdapter {
     async healthCheck(): Promise<boolean> {
       let browser: Browser | null = null;
       try {
-        browser = await chromium.launch({ headless: true });
+        browser = await chromium.launch(olxLaunchOptions());
         const page = await browser.newPage();
-        const url = `${OLX_CONFIG.baseUrl}${OLX_CONFIG.searchPath}?filter=city_eq_${OLX_CONFIG.cityParam}`;
+        const url = olxSearchUrl(OLX_CONFIG);
         await page.goto(url, { waitUntil: "domcontentloaded", timeout: 15000 });
         const cards = await extractListingCards(page);
         await browser.close();
