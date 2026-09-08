@@ -12,9 +12,24 @@
 export const LAKH = 100_000;
 export const CRORE = 10_000_000;
 
-/** Absolute bounds. Anything outside is a parse error, not a real car. */
+/** Absolute bounds for a sale price. Outside these it is a parse error. */
 export const MIN_PRICE = 25_000;
 export const MAX_PRICE = 200_000_000;
+
+/**
+ * Bounds for a monthly rent, which is a different quantity entirely.
+ *
+ * These used to share the sale-price bounds, so a ₹25,000 floor written for
+ * used cars was being applied to rents — and ₹25,000 is a mid-range Chennai
+ * rent, not an implausible one. It threw away 38 of 80 real OLX listings in one
+ * run: a 1 BHK in Perambur at ₹6,000, another in Vyasarpadi at ₹6,800, a 2 BHK
+ * in Pulianthope at ₹5,000. All genuine, all rejected as "parse errors".
+ *
+ * ₹2,000 is below any real Chennai rent while still catching a stray "2" or a
+ * deposit misread as rent; ₹10,00,000 a month is above the top of the market.
+ */
+export const MIN_RENT = 2_000;
+export const MAX_RENT = 1_000_000;
 
 // The comma-grouped alternative requires at least one comma group. With `*`
 // it also matched plain digits, but only the first three of them — so

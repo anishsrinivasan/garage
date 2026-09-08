@@ -12,6 +12,7 @@ import { db, dealerSources, garages } from "@classifieds/db";
 import { createInstagramAdapter } from "./adapters/instagram";
 import { createCars24Adapter } from "./adapters/cars24";
 import { createOlxAdapter } from "./adapters/olx";
+import { createOlxRentalsAdapter } from "./adapters/olx-rentals";
 import { createCardekhoAdapter } from "./adapters/cardekho";
 import { createInstagramRentalsAdapter } from "./adapters/instagram-rentals";
 import { runAdapter, type RunOptions } from "./runner";
@@ -24,7 +25,8 @@ export type SourceName =
   | "instagram-rentals"
   | "cars24"
   | "cardekho"
-  | "olx";
+  | "olx"
+  | "olx-rentals";
 
 export const ALL_SOURCES: SourceName[] = [
   "instagram",
@@ -33,6 +35,7 @@ export const ALL_SOURCES: SourceName[] = [
   // Headful-only: OLX's bot check rejects headless outright. Needs a display,
   // so it is excluded from environments without one — see olx-config.ts.
   "olx",
+  "olx-rentals",
   "cardekho",
 ];
 
@@ -114,6 +117,7 @@ export async function buildAdapters(
 
   if (sources.includes("cars24")) adapters.push(createCars24Adapter());
   if (sources.includes("olx")) adapters.push(createOlxAdapter());
+  if (sources.includes("olx-rentals")) adapters.push(createOlxRentalsAdapter());
   if (sources.includes("cardekho")) adapters.push(createCardekhoAdapter());
 
   return adapters;
