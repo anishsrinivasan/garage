@@ -1,4 +1,4 @@
-import { db, listings, garages } from "@preowned-cars/db";
+import { db, listings, garages } from "@classifieds/db";
 import {
   eq,
   and,
@@ -24,8 +24,8 @@ import {
   RANKING_WEIGHTS,
   STALE_AFTER_DAYS,
   type FreshnessBucket,
-} from "@preowned-cars/shared";
-import { PREMIUM_MAKES } from "@preowned-cars/verticals/cars";
+} from "@classifieds/shared";
+import { PREMIUM_MAKES } from "@classifieds/verticals/cars";
 
 export type SortField =
   | "relevance"
@@ -123,6 +123,9 @@ function buildConditions(filters: ListingFilters): SQL[] {
     // Only the head of a dedup cluster reaches the feed; the reposts of the
     // same car stay reachable by URL but stop repeating in the grid.
     eq(listings.isClusterHead, true),
+    // `listings` is shared by every vertical, so the cars feed has to say so.
+    // Without this a rental leaks into the grid and is rendered as a car.
+    eq(listings.vertical, "cars"),
   ];
 
   if (!filters.includeStale) {
@@ -288,7 +291,7 @@ export async function getListingById(id: string) {
     })
     .from(listings)
     .leftJoin(garages, eq(garages.id, listings.garageId))
-    .where(eq(listings.id, id))
+    .where(and(eq(listings.id, id), eq(listings.vertical, "cars")))
     .limit(1);
   if (!row) return null;
   return {
@@ -358,6 +361,7 @@ export async function getSimilarListings(listing: {
       and(
         eq(listings.isActive, true),
         eq(listings.isClusterHead, true),
+        eq(listings.vertical, "cars"),
         sql`${listings.id} <> ${listing.id}`,
         or(
           and(
@@ -400,7 +404,10 @@ export async function getListingsByIds(ids: string[]) {
     })
     .from(listings)
     .leftJoin(garages, eq(garages.id, listings.garageId))
-    .where(inArray(listings.id, ids));
+    // Bookmarks are stored as bare ids with no vertical, so this is asked for
+    // ids that may include rentals. Those are loaded by `getRentalsByIds`,
+    // which joins the attrs this projection has no columns for.
+    .where(and(inArray(listings.id, ids), eq(listings.vertical, "cars")));
   // Preserve input order (bookmarks are usually sorted newest-first upstream).
   const rank = new Map(ids.map((id, i) => [id, i]));
   return results.sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
@@ -429,6 +436,7 @@ async function loadFilterOptions(): Promise<FilterOptions> {
   const activeOnly = and(
     eq(listings.isActive, true),
     eq(listings.isClusterHead, true),
+    eq(listings.vertical, "cars"),
   );
 
   const [
@@ -529,7 +537,13 @@ async function loadCatalogueHealth(): Promise<CatalogueHealth> {
         addedThisWeek: sql<number>`count(*) filter (where ${listings.firstSeenAt} >= now() - interval '7 days')::int`,
       })
       .from(listings)
-      .where(and(eq(listings.isActive, true), eq(listings.isClusterHead, true))),
+      .where(
+        and(
+          eq(listings.isActive, true),
+          eq(listings.isClusterHead, true),
+          eq(listings.vertical, "cars"),
+        ),
+      ),
   ]);
 
   return {

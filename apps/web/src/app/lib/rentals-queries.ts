@@ -1,5 +1,5 @@
-import { db, listings, listingRentalAttrs, localities, garages } from "@preowned-cars/db";
-import { and, asc, count, desc, eq, gte, ilike, lte, or, sql, type SQL } from "drizzle-orm";
+import { db, listings, listingRentalAttrs, localities, garages } from "@classifieds/db";
+import { and, asc, count, desc, eq, gte, ilike, inArray, lte, or, sql, type SQL } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { unstable_cache } from "next/cache";
 import {
@@ -7,7 +7,7 @@ import {
   MIN_RECENCY_MULTIPLIER,
   RANKING_WEIGHTS,
   STALE_AFTER_DAYS,
-} from "@preowned-cars/shared";
+} from "@classifieds/shared";
 
 /**
  * The rentals feed.
@@ -40,6 +40,13 @@ export interface RentalFilters {
   maxArea?: number;
   freshness?: string;
   includeStale?: boolean;
+  /**
+   * Show flats the broker has already let. Off by default: a renter looking for
+   * somewhere to live is not served by a page of places they cannot have, and
+   * these captions say so plainly ("TAKEN", "rented out"). They stay reachable
+   * so a returning visitor's link does not break.
+   */
+  includeTaken?: boolean;
   sortBy?: RentalSortField;
   sortOrder?: "asc" | "desc";
   page?: number;
@@ -83,6 +90,12 @@ function buildConditions(filters: RentalFilters): SQL[] {
     eq(listings.isActive, true),
     eq(listings.isClusterHead, true),
   ];
+
+  if (!filters.includeTaken) {
+    // coalesce, not `<> 'sold'`: in SQL `NULL <> 'sold'` is NULL, not true, so a
+    // listing whose status was never set would silently vanish from the feed.
+    conditions.push(sql`coalesce(${listings.saleStatus}, 'available') <> 'sold'`);
+  }
 
   if (!filters.includeStale) {
     conditions.push(
@@ -222,7 +235,14 @@ export async function getRentals(filters: RentalFilters) {
   const page = Math.max(1, filters.page ?? 1);
   const pageSize = filters.pageSize ?? PAGE_SIZE;
 
-  const [rows, [totals]] = await Promise.all([
+  // How many the current filters match but the taken rule is hiding, so the page
+  // can offer them instead of silently dropping inventory.
+  const takenWhere = and(
+    ...buildConditions({ ...filters, includeTaken: true }),
+    sql`${listings.saleStatus} = 'sold'`,
+  );
+
+  const [rows, [totals], [takenCount]] = await Promise.all([
     baseQuery()
       .where(where)
       .orderBy(...orderBy)
@@ -234,12 +254,21 @@ export async function getRentals(filters: RentalFilters) {
       .innerJoin(listingRentalAttrs, eq(listingRentalAttrs.listingId, listings.id))
       .leftJoin(localities, eq(localities.id, listings.localityId))
       .where(where),
+    db
+      .select({ total: count() })
+      .from(listings)
+      .innerJoin(listingRentalAttrs, eq(listingRentalAttrs.listingId, listings.id))
+      .leftJoin(localities, eq(localities.id, listings.localityId))
+      .where(takenWhere),
   ]);
+
+  const takenHidden = filters.includeTaken ? 0 : (takenCount?.total ?? 0);
 
   const total = totals?.total ?? 0;
   return {
     listings: rows,
     total,
+    takenHidden,
     page,
     pageSize,
     totalPages: Math.max(1, Math.ceil(total / pageSize)),
@@ -249,6 +278,22 @@ export async function getRentals(filters: RentalFilters) {
 export async function getRentalById(id: string) {
   const [row] = await baseQuery().where(eq(listings.id, id)).limit(1);
   return row ?? null;
+}
+
+/**
+ * Rentals by id, for the bookmarks page.
+ *
+ * `getListingsByIds` in the cars module cannot serve these: it selects car
+ * columns and never joins the rental attrs, so a saved flat came back with a
+ * null bhk and rent and was drawn as a car. Bookmarks are stored per id with no
+ * vertical, so the saved page asks both modules and renders whatever each
+ * returns.
+ */
+export async function getRentalsByIds(ids: string[]) {
+  if (ids.length === 0) return [];
+  const rows = await baseQuery().where(inArray(listings.id, ids));
+  const rank = new Map(ids.map((id, i) => [id, i]));
+  return rows.sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
 }
 
 export async function getSimilarRentals(listing: {

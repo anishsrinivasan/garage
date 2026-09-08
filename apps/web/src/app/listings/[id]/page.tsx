@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { getRentalById } from "@/app/lib/rentals-queries";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -35,7 +36,7 @@ import {
   daysBetween,
 } from "@/app/lib/format";
 import { orderedGallery, pickHeroImage, type MediaItem } from "@/app/lib/media";
-import { STALE_AFTER_DAYS } from "@preowned-cars/shared";
+import { STALE_AFTER_DAYS } from "@classifieds/shared";
 import { SourceBadge } from "@/app/components/source-badge";
 import { BookmarkButton } from "@/app/components/bookmark-button";
 import { ReportListingModal } from "@/app/components/report-listing-modal";
@@ -92,7 +93,13 @@ interface PageProps {
 export default async function ListingDetailPage({ params }: PageProps) {
   const { id } = await params;
   const listing = await getListingById(id);
-  if (!listing) notFound();
+  if (!listing) {
+    // The id may be a real listing in another vertical — a bookmark saved before
+    // the card linked to the right place, or a hand-edited URL. Send it to the
+    // surface that can actually render it instead of a dead 404.
+    if (await getRentalById(id)) redirect(`/rent/${id}`);
+    notFound();
+  }
 
   const media = orderedGallery(
     listing.media as MediaItem[] | null,

@@ -5,25 +5,33 @@ import { Heart, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useBookmarks } from "@/app/lib/use-bookmarks";
 import { ListingCard } from "@/app/components/listing-card";
+import { RentalCard } from "@/app/components/rental-card";
 import { fetchSavedListings } from "./actions";
 
 type Listing = Parameters<typeof ListingCard>[0]["listing"];
+type Rental = Parameters<typeof RentalCard>[0]["listing"];
 
 export default function SavedPage() {
   const { ids, count } = useBookmarks();
   const [listings, setListings] = useState<Listing[]>([]);
+  const [rentals, setRentals] = useState<Rental[]>([]);
+  const [order, setOrder] = useState<string[]>([]);
   const [isPending, startTransition] = useTransition();
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     if (ids.length === 0) {
       setListings([]);
+      setRentals([]);
+      setOrder([]);
       setLoaded(true);
       return;
     }
     startTransition(async () => {
       const data = await fetchSavedListings(ids);
-      setListings(data as Listing[]);
+      setListings(data.cars as Listing[]);
+      setRentals(data.rentals as Rental[]);
+      setOrder(data.order);
       setLoaded(true);
     });
   }, [ids]);
@@ -50,7 +58,7 @@ export default function SavedPage() {
           Saved Listings
         </h1>
         <p className="mt-2 text-sm text-ink-400">
-          {count} car{count !== 1 ? "s" : ""} saved
+          {count} listing{count !== 1 ? "s" : ""} saved
         </p>
       </div>
 
@@ -63,7 +71,7 @@ export default function SavedPage() {
             />
           ))}
         </div>
-      ) : listings.length === 0 ? (
+      ) : listings.length === 0 && rentals.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-white/10 bg-white/[0.02] py-20 text-center">
           <Heart className="h-10 w-10 text-ink-600" strokeWidth={1.3} />
           <p className="font-display text-lg font-semibold text-ink-200">
@@ -81,9 +89,12 @@ export default function SavedPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-          {listings.map((listing) => (
-            <ListingCard key={listing.id} listing={listing} />
-          ))}
+          {order.map((id) => {
+            const car = listings.find((l) => l.id === id);
+            if (car) return <ListingCard key={id} listing={car} />;
+            const rental = rentals.find((r) => r.id === id);
+            return rental ? <RentalCard key={id} listing={rental} /> : null;
+          })}
         </div>
       )}
     </div>

@@ -18,3 +18,17 @@ export default function Loading() {
     </div>
   );
 }
+
+/*
+ * Scoped to the home feed via the (home) route group rather than sitting at the
+ * app root.
+ *
+ * A root loading.tsx wraps every route in a Suspense boundary, so Next flushes
+ * the shell — and commits HTTP 200 — before the page body runs. `notFound()`
+ * and `redirect()` then have no status left to set: every missing listing,
+ * rental and garage answered 200 with a "not found" page, which search engines
+ * treat as a soft 404 and may index.
+ *
+ * It is also the wrong skeleton anywhere else: it draws a hero, a filter rail
+ * and a grid of car cards, which is not what a detail page is about to show.
+ */

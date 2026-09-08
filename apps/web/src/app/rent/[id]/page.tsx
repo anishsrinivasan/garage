@@ -30,7 +30,7 @@ import {
   rentalLabel,
   rentalTitle,
 } from "@/app/lib/rental-format";
-import { STALE_AFTER_DAYS } from "@preowned-cars/shared";
+import { STALE_AFTER_DAYS } from "@classifieds/shared";
 import { Gallery } from "@/app/components/gallery";
 import { AgeChip } from "@/app/components/age-chip";
 import { SourceBadge } from "@/app/components/source-badge";

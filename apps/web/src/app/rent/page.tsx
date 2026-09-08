@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import type { Metadata } from "next";
 import { Clock, Home, MapPin } from "lucide-react";
 import { getRentals, getRentalFacets, type RentalFilters } from "@/app/lib/rentals-queries";
@@ -35,6 +36,7 @@ function parse(sp: Record<string, string | undefined>): RentalFilters {
     locality: sp.locality,
     freshness: sp.freshness,
     includeStale: sp.includeStale === "1",
+    includeTaken: sp.includeTaken === "1",
     sortBy: (sp.sortBy as RentalFilters["sortBy"]) ?? "relevance",
     sortOrder: sp.sortBy === "rent" ? "asc" : "desc",
     page: num(sp.page) ?? 1,
@@ -92,7 +94,7 @@ export default async function RentPage({
 
         <div className="min-w-0 flex-1">
           <Suspense key={JSON.stringify(filters)} fallback={<Skeleton />}>
-            <Results filters={filters} search={sp.search} />
+            <Results filters={filters} search={sp.search} params={sp} />
           </Suspense>
         </div>
       </div>
@@ -103,21 +105,52 @@ export default async function RentPage({
 async function Results({
   filters,
   search,
+  params,
 }: {
   filters: RentalFilters;
   search?: string;
+  params: Record<string, string | undefined>;
 }) {
   const result = await getRentals(filters);
+
+  // Every current filter survives the toggle; only the toggle itself and the
+  // page cursor are dropped, since including taken flats renumbers the pages.
+  const cleanParams: Record<string, string> = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (value && key !== "includeTaken" && key !== "page") cleanParams[key] = value;
+  }
 
   return (
     <>
       <div className="mb-6">
         <h2 className="font-display text-2xl font-bold tracking-tight text-ink-50">
-          {search ? `Rentals matching "${search}"` : "Available now"}
+          {search
+            ? `Rentals matching "${search}"`
+            : filters.includeTaken
+              ? "All rentals, including taken"
+              : "Available now"}
         </h2>
         <p className="mt-1 text-sm text-ink-400">
           {result.total.toLocaleString("en-IN")} home{result.total !== 1 ? "s" : ""} match your filters
         </p>
+        {/* Taken flats are hidden, not deleted. Saying how many and offering
+            them is the difference between a filter and missing inventory. */}
+        {result.takenHidden > 0 && (
+          <Link
+            href={`?${new URLSearchParams({ ...cleanParams, includeTaken: "1" })}`}
+            className="mt-2 inline-flex items-center gap-1.5 text-xs text-ink-500 underline-offset-4 transition hover:text-ink-300 hover:underline"
+          >
+            {result.takenHidden} already taken — show {result.takenHidden === 1 ? "it" : "them"} too
+          </Link>
+        )}
+        {filters.includeTaken && (
+          <Link
+            href={`?${new URLSearchParams(cleanParams)}`}
+            className="mt-2 inline-flex items-center gap-1.5 text-xs text-ink-500 underline-offset-4 transition hover:text-ink-300 hover:underline"
+          >
+            Hide taken listings
+          </Link>
+        )}
       </div>
 
       {result.listings.length === 0 ? (
