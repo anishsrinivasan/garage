@@ -12,10 +12,14 @@
     "./storage": "./src/storage/r2.ts",
     "./ai": "./src/ai/core.ts"
   },
-  "scripts": { "build": "tsc", "lint": "tsc --noEmit" },
+  "scripts": {
+    "build": "tsc",
+    "lint": "tsc --noEmit"
+  },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.69",
     "@ai-sdk/google": "^3.0.63",
+    "@ai-sdk/openai-compatible": "2.0.74",
     "@aws-sdk/client-s3": "^3.1030.0",
     "@preowned-cars/db": "workspace:*",
     "@preowned-cars/shared": "workspace:*",
@@ -24,5 +28,7 @@
     "playwright": "^1.50.0",
     "zod": "^4.3.6"
   },
-  "devDependencies": { "typescript": "^5.7.0" }
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
 }
