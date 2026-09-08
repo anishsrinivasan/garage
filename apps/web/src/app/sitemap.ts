@@ -25,6 +25,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
   const base: MetadataRoute.Sitemap = [
     { url: `${SITE_URL}/`, lastModified: now, changeFrequency: "hourly", priority: 1 },
+    { url: `${SITE_URL}/rent`, lastModified: now, changeFrequency: "hourly", priority: 0.9 },
     { url: `${SITE_URL}/garages`, lastModified: now, changeFrequency: "daily", priority: 0.8 },
   ];
 
@@ -48,7 +49,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const listings = await getSitemapListings();
     for (const listing of listings) {
       base.push({
-        url: `${SITE_URL}/listings/${listing.id}`,
+        // Rentals live under /rent; cars under /listings.
+        url: `${SITE_URL}/${listing.vertical === "rentals" ? "rent" : "listings"}/${listing.id}`,
         lastModified: listing.updatedAt,
         changeFrequency: "weekly",
         priority: 0.7,

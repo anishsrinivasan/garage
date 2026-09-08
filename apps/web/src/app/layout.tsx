@@ -129,7 +129,13 @@ export default function RootLayout({
                 href="/"
                 className="rounded-md px-3 py-1.5 text-sm font-medium text-ink-300 transition hover:bg-white/5 hover:text-ink-50"
               >
-                Browse
+                Cars
+              </Link>
+              <Link
+                href="/rent"
+                className="rounded-md px-3 py-1.5 text-sm font-medium text-ink-300 transition hover:bg-white/5 hover:text-ink-50"
+              >
+                Rentals
               </Link>
               <Link
                 href="/garages"

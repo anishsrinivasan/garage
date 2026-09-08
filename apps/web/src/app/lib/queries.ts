@@ -555,6 +555,7 @@ export async function getSitemapListings() {
   return db
     .select({
       id: listings.id,
+      vertical: listings.vertical,
       updatedAt: listings.updatedAt,
     })
     .from(listings)

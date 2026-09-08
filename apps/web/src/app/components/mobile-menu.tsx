@@ -27,6 +27,9 @@ export function MobileMenu() {
             <MobileLink href="/" active={pathname === "/"} onClick={() => setOpen(false)}>
               Browse
             </MobileLink>
+            <MobileLink href="/rent" active={pathname.startsWith("/rent")} onClick={() => setOpen(false)}>
+              Rentals
+            </MobileLink>
             <MobileLink href="/garages" active={pathname.startsWith("/garages")} onClick={() => setOpen(false)}>
               Garages
             </MobileLink>
