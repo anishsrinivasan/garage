@@ -202,7 +202,10 @@ export async function getListings(filters: ListingFilters) {
   if (sortField === "relevance") {
     orderBy = [
       sql`${RELEVANCE_SCORE} DESC`,
-      sql`${listings.price} DESC NULLS LAST`,
+      // Ties break toward the cheaper and then the newer listing, matching what
+      // the score itself now rewards. This was price DESC, which quietly put the
+      // expensive one first whenever two cars scored alike.
+      sql`${listings.price} ASC NULLS LAST`,
       desc(listings.firstSeenAt),
     ];
   } else if (sortField === "listedAt") {
