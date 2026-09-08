@@ -7,7 +7,7 @@ import { normalizeListingFields } from "@preowned-cars/verticals/cars";
 import { createHash } from "crypto";
 import { validateListing } from "./utils/validation";
 import { delistUnseen, reactivate } from "@preowned-cars/pipeline";
-import { rebuildDedupeClusters } from "./dedupe-runner";
+import { rebuildClustersFor } from "./dedupe-runner";
 import { findAggregatorSourceId, recordSourceRun } from "@preowned-cars/pipeline";
 
 const MAX_RETRIES = 3;
@@ -59,9 +59,12 @@ function computeContentHash(listing: NormalizedListing): string {
   return createHash("sha256").update(key).digest("hex");
 }
 
-async function upsertListings(incoming: NormalizedListing[]): Promise<{ newCount: number; updatedCount: number }> {
+async function upsertListings(
+  incoming: NormalizedListing[],
+): Promise<{ newCount: number; updatedCount: number; ids: string[] }> {
   let newCount = 0;
   let updatedCount = 0;
+  const ids: string[] = [];
 
   const now = new Date();
 
@@ -176,6 +179,7 @@ async function upsertListings(incoming: NormalizedListing[]): Promise<{ newCount
 
     if (result.length > 0) {
       const row = result[0]!;
+      ids.push(row.id);
       // A row inserted by this statement has firstSeenAt === now; one that
       // already existed keeps its original value.
       if (Math.abs(row.firstSeenAt.getTime() - now.getTime()) < 1000) newCount++;
@@ -183,7 +187,7 @@ async function upsertListings(incoming: NormalizedListing[]): Promise<{ newCount
     }
   }
 
-  return { newCount, updatedCount };
+  return { newCount, updatedCount, ids };
 }
 
 export type RunOptions = {
@@ -244,7 +248,8 @@ export async function runAdapter(
         );
       }
 
-      const { newCount, updatedCount } = await upsertListings(validListings);
+      const { newCount, updatedCount, ids: upsertedIds } =
+        await upsertListings(validListings);
 
       // Instagram records per-handle status inside its own adapter, since one
       // run covers many dealers. Marketplaces have a single aggregator source,
@@ -270,8 +275,10 @@ export async function runAdapter(
         }
       }
 
-      if (!options.skipDedupe) {
-        await rebuildDedupeClusters().catch((err) =>
+      if (!options.skipDedupe && upsertedIds.length > 0) {
+        // Incremental: only the clusters this run touched. A twenty-listing run
+        // has no business reading and rewriting the whole table.
+        await rebuildClustersFor(upsertedIds).catch((err: unknown) =>
           console.warn(
             `[runner] ${adapter.name}: dedupe failed — ${err instanceof Error ? err.message : String(err)}`,
           ),

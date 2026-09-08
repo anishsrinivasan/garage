@@ -131,5 +131,6 @@ export async function runMaintenance(): Promise<MaintenanceSummary> {
 }
 
 export { runAdapter, delistStale, rebuildDedupeClusters };
+export { rebuildClustersFor } from "./dedupe-runner";
 export type { RunOptions };
 export * from "./garage-onboarding";
