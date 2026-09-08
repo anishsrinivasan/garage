@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "classifieds-admin",
+  "compatibility_date": "2026-09-08",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "main": "vinext/server/fetch-handler",
+  "assets": {
+    "directory": "dist/client",
+    "not_found_handling": "none",
+    "binding": "ASSETS"
+  },
+  "version_metadata": {
+    "binding": "CF_VERSION_METADATA"
+  },
+  // Same pooled connection the public app uses.
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "3eb81b450be94b398beb54fc7725645f"
+    }
+  ]
+}

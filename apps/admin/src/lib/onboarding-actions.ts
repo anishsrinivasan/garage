@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import {
-  fetchInstagramProfile,
   createGarageFromInstagram,
   normalizeHandle,
   slugify,
@@ -11,7 +10,7 @@ import {
   type InstagramProfile,
 } from "@classifieds/scraper/onboarding";
 import { requireSession } from "./session";
-import { triggerScrape } from "./cron-client";
+import { triggerScrape, fetchProfileViaCron } from "./cron-client";
 
 /**
  * Adding a garage from an Instagram handle.
@@ -44,7 +43,15 @@ export async function previewInstagramGarage(
   const handle = normalizeHandle(rawHandle);
   if (!handle) return { ok: false, error: "Enter an Instagram handle or profile URL" };
 
-  const profile = await fetchInstagramProfile(handle);
+  // Read on the cron host, which has a browser; this app runs on Workers.
+  const read = await fetchProfileViaCron(handle);
+  if (!read.ok) {
+    return {
+      ok: false,
+      error: `Couldn't reach the scraper service to look up @${handle}. ${read.error}`,
+    };
+  }
+  const profile = read.profile;
   if (!profile.exists) {
     return {
       ok: false,

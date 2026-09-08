@@ -38,6 +38,7 @@
     "./runner": "./src/runner.ts",
     "./dedupe": "./src/dedupe.ts",
     "./delist": "./src/delist.ts",
-    "./onboarding": "./src/garage-onboarding.ts"
+    "./onboarding": "./src/garage-onboarding.ts",
+    "./instagram-profile": "./src/instagram-profile.ts"
   }
 }
