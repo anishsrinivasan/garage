@@ -7,15 +7,11 @@
  * banned. This answers from an index that already exists — and that index holds
  * inventory Google does not, which is the entire reason it is interesting.
  *
- * Run over stdio:
- *   bun run apps/mcp/src/index.ts
- *
  * Register with Claude Code:
- *   claude mcp add torque -- bun run /abs/path/apps/mcp/src/index.ts
+ *   claude mcp add classifieds --transport http https://<host>/api/mcp
  */
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+
 import { z, type ZodRawShape } from "zod";
 import { and, asc, desc, eq, gte, ilike, lte, or, sql, type SQL } from "drizzle-orm";
 import {
@@ -29,12 +25,52 @@ import {
 } from "@classifieds/db";
 import { relativeAge, STALE_AFTER_DAYS } from "@classifieds/shared";
 
+/**
+ * The listings index, as MCP tools.
+ *
+ * These lived in a separate stdio app. They are here now because the transport
+ * that matters is HTTP — an agent on another host cannot spawn a subprocess on
+ * this one — and because the two packages disagreed about zod: the stdio SDK is
+ * built on zod 3, @modelcontextprotocol/server on zod 4, and a zod 3 schema
+ * handed to `registerTool` is silently ignored. That produced a server that
+ * answered `tools/list` with an empty array and no error anywhere. One copy, on
+ * one version, in the app that already has the database.
+ */
+export function registerTools(server: {
+  registerTool: (
+    name: string,
+    config: { description: string; inputSchema: unknown },
+    handler: (args: never) => unknown,
+  ) => unknown;
+}): void {
+  const s = {
+    tool(name: string, description: string, inputSchema: unknown, handler: unknown) {
+      server.registerTool(
+        name,
+        { description, inputSchema },
+        handler as (args: never) => unknown,
+      );
+    },
+  };
+
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://localhost:3000";
 
-const server = new McpServer({
-  name: "classifieds-listings",
-  version: "0.1.0",
-});
+/**
+ * Parses a polling cursor. Returns null for anything unparseable rather than
+ * throwing, so a malformed value degrades to "no cursor" — a caller gets the
+ * normal newest-first page instead of an error it cannot act on.
+ */
+function parseCursor(value: string | undefined): string | null {
+  if (!value) return null;
+  const at = new Date(value);
+  // Returned as an ISO string, not a Date. A Date bound into a query fails to
+  // serialise here — "the string argument must be of type string ... received
+  // an instance of Date" — the same way it did in the session pool. The cast in
+  // the comparison below turns it back into the UTC wall-clock value the
+  // timestamp column stores.
+  return Number.isNaN(at.getTime()) ? null : at.toISOString();
+}
+
 
 /** Shared predicate: what belongs in any answer. */
 function liveOnly(vertical: string, includeStale: boolean): SQL[] {
@@ -63,6 +99,17 @@ function freshnessLine(row: { listedAt: Date | null; firstSeenAt: Date; lastSeen
   const stale =
     Date.now() - row.lastSeenAt.getTime() > STALE_AFTER_DAYS * 86_400_000;
   return `listed ${listed}, last confirmed ${confirmed}${stale ? " — UNCONFIRMED, may be gone" : ""}`;
+}
+
+/**
+ * The exact value to pass back as `first_seen_after` next time.
+ *
+ * Without this the polling cursor was unusable: the tool told a caller to send
+ * back "the newest first_seen_at you have handled" and then never showed it.
+ * A caller had to guess a timestamp, and guessing high skips listings silently.
+ */
+function cursorLine(row: { firstSeenAt: Date }) {
+  return `indexed ${row.firstSeenAt.toISOString()}`;
 }
 
 function money(value: number | string | null): string {
@@ -99,8 +146,16 @@ const findRentalsSchema = {
   posted_within_days: z
     .number()
     .optional()
-    .describe("Only homes first seen within this many days"),
-  limit: z.number().min(1).max(50).default(10),
+    .describe(
+      "Only homes the broker POSTED within this many days. Not the same as when this index first saw them — for polling, use first_seen_after.",
+    ),
+  first_seen_after: z
+    .string()
+    .optional()
+    .describe(
+      "ISO 8601 timestamp. Returns only listings this index first saw strictly after it, oldest first. This is the parameter to poll on: every result carries an 'indexed <timestamp>' line, so pass back the latest one you have handled and you get exactly what arrived since — nothing missed, nothing repeated.",
+    ),
+  limit: z.number().min(1).default(50).describe("How many to return. Uncapped — ask for what you need."),
 } satisfies ZodRawShape;
 
 type FindRentalsArgs = {
@@ -110,10 +165,11 @@ type FindRentalsArgs = {
   bhk?: number;
   furnishing?: "unfurnished" | "semi_furnished" | "fully_furnished";
   posted_within_days?: number;
+  first_seen_after?: string;
   limit: number;
 };
 
-server.tool(
+s.tool(
   "find_rentals",
   "Search rental listings gathered from Instagram brokers. Returns homes with an honest listed date and last-confirmed date — inventory that is largely absent from the big property portals.",
   shape(findRentalsSchema),
@@ -149,6 +205,15 @@ server.tool(
       );
     }
 
+    // Strictly after, so a caller passing back the last first_seen_at it
+    // saw does not receive that same listing again on the next poll.
+    const pollingCursor = parseCursor(args.first_seen_after);
+    if (pollingCursor) {
+      conditions.push(
+        sql`${listings.firstSeenAt} > (${pollingCursor})::timestamptz at time zone 'utc'`,
+      );
+    }
+
     const rows = await db
       .select({
         id: listings.id,
@@ -173,7 +238,16 @@ server.tool(
       .leftJoin(localities, eq(localities.id, listings.localityId))
       .leftJoin(garages, eq(garages.id, listings.garageId))
       .where(and(...conditions))
-      .orderBy(desc(sql`coalesce(${listings.listedAt}, ${listings.firstSeenAt})`), desc(listings.id))
+      // Polling reads oldest-first: a caller that fills `limit` can move its
+      // cursor to the last row and continue without skipping what came between.
+      .orderBy(
+        ...(pollingCursor
+          ? [asc(listings.firstSeenAt), asc(listings.id)]
+          : [
+              desc(sql`coalesce(${listings.listedAt}, ${listings.firstSeenAt})`),
+              desc(listings.id),
+            ]),
+      )
       .limit(args.limit);
 
     if (rows.length === 0) {
@@ -194,6 +268,7 @@ server.tool(
         `${layout} in ${where} — ${money(r.rent)}/month`,
         `  deposit ${money(r.deposit)}${r.area ? `, ${r.area} sqft` : ""}${r.furnishing ? `, ${r.furnishing.replace(/_/g, " ")}` : ""}`,
         `  ${freshnessLine(r)}`,
+        `  ${cursorLine(r)}`,
         `  broker: ${r.orgName ?? "unknown"}${r.phone ? ` (${r.phone})` : ""}`,
         `  ${SITE_URL}/rent/${r.id}`,
       ].join("\n");
@@ -218,7 +293,13 @@ const findCarsSchema = {
   min_year: z.number().optional(),
   fuel_type: z.enum(["petrol", "diesel", "cng", "electric", "hybrid", "lpg"]).optional(),
   body_type: z.string().optional(),
-  limit: z.number().min(1).max(50).default(10),
+  first_seen_after: z
+    .string()
+    .optional()
+    .describe(
+      "ISO 8601 timestamp. Returns only listings this index first saw strictly after it, oldest first. Every result carries an 'indexed <timestamp>' line; pass back the latest one you have handled.",
+    ),
+  limit: z.number().min(1).default(50).describe("How many to return. Uncapped — ask for what you need."),
 } satisfies ZodRawShape;
 
 type FindCarsArgs = {
@@ -229,10 +310,11 @@ type FindCarsArgs = {
   min_year?: number;
   fuel_type?: string;
   body_type?: string;
+  first_seen_after?: string;
   limit: number;
 };
 
-server.tool(
+s.tool(
   "find_cars",
   "Search used-car listings gathered from Instagram dealers and marketplaces, with an honest listed date and last-confirmed date.",
   shape(findCarsSchema),
@@ -257,6 +339,15 @@ server.tool(
     if (args.fuel_type) conditions.push(eq(listingCarAttrs.fuelType, args.fuel_type));
     if (args.body_type) conditions.push(eq(listingCarAttrs.bodyType, args.body_type));
 
+    // Strictly after, so a caller passing back the last first_seen_at it saw
+    // does not receive that same listing again on the next poll.
+    const pollingCursor = parseCursor(args.first_seen_after);
+    if (pollingCursor) {
+      conditions.push(
+        sql`${listings.firstSeenAt} > (${pollingCursor})::timestamptz at time zone 'utc'`,
+      );
+    }
+
     const rows = await db
       .select({
         id: listings.id,
@@ -279,7 +370,16 @@ server.tool(
       .innerJoin(listingCarAttrs, eq(listingCarAttrs.listingId, listings.id))
       .leftJoin(garages, eq(garages.id, listings.garageId))
       .where(and(...conditions))
-      .orderBy(desc(sql`coalesce(${listings.listedAt}, ${listings.firstSeenAt})`), desc(listings.id))
+      // Polling reads oldest-first: a caller that fills `limit` can move its
+      // cursor to the last row and continue without skipping what came between.
+      .orderBy(
+        ...(pollingCursor
+          ? [asc(listings.firstSeenAt), asc(listings.id)]
+          : [
+              desc(sql`coalesce(${listings.listedAt}, ${listings.firstSeenAt})`),
+              desc(listings.id),
+            ]),
+      )
       .limit(args.limit);
 
     if (rows.length === 0) {
@@ -295,6 +395,7 @@ server.tool(
         `${r.year} ${r.make} ${r.model}${r.variant ? ` ${r.variant}` : ""} — ${money(r.price)}`,
         `  ${r.kmDriven ? `${r.kmDriven.toLocaleString("en-IN")} km` : "km unknown"}${r.fuelType ? `, ${r.fuelType}` : ""}${r.transmission ? `, ${r.transmission}` : ""}, ${r.city}`,
         `  ${freshnessLine(r)}`,
+        `  ${cursorLine(r)}`,
         `  seller: ${r.orgName ?? r.sourcePlatform}`,
         `  ${SITE_URL}/listings/${r.id}`,
       ].join("\n"),
@@ -313,7 +414,7 @@ const listLocalitiesSchema = {
   min_listings: z.number().default(1),
 } satisfies ZodRawShape;
 
-server.tool(
+s.tool(
   "list_localities",
   "List the localities the index covers, with how many live listings each has. Use this to discover valid locality names before searching.",
   shape(listLocalitiesSchema),
@@ -361,7 +462,7 @@ server.tool(
   },
 );
 
-server.tool(
+s.tool(
   "index_status",
   "What this index currently covers: listing counts per vertical, freshness, and when it was last updated. Use this to judge whether an empty result means 'nothing matches' or 'nothing indexed yet'.",
   shape({}),
@@ -395,4 +496,4 @@ server.tool(
   },
 );
 
-await server.connect(new StdioServerTransport());
+}
