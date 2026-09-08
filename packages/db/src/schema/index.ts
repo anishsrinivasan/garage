@@ -1,6 +1,7 @@
 export * from "./_schema";
 export * from "./listings";
 export * from "./listing-attrs";
+export * from "./rental-attrs";
 export * from "./geography";
 export * from "./dealer-sources";
 export * from "./scrape-runs";

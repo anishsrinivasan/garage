@@ -6,7 +6,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./cars": "./src/cars/index.ts"
+    "./cars": "./src/cars/index.ts",
+    "./rentals": "./src/rentals/index.ts"
   },
   "scripts": {
     "build": "tsc",

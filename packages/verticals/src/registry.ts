@@ -1,5 +1,6 @@
 import type { Vertical, VerticalId } from "./types";
 import { carsVertical } from "./cars";
+import { rentalsVertical } from "./rentals";
 
 /**
  * The only place that knows which verticals exist. Adding resale means adding
@@ -8,6 +9,7 @@ import { carsVertical } from "./cars";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const REGISTRY: Record<string, Vertical<any>> = {
   cars: carsVertical,
+  rentals: rentalsVertical,
 };
 
 export function getVertical(id: VerticalId | string): Vertical<unknown> {
