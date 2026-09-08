@@ -12,7 +12,8 @@
     "scrape:olx": "bun run src/index.ts --source olx",
     "session:import": "bun run src/session-import.ts",
     "create-alert": "bun run src/create-alert.ts",
-    "rescore-media": "bun run src/rescore-media.ts"
+    "rescore-media": "bun run src/rescore-media.ts",
+    "discover": "bun run src/apify-discover.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.69",
