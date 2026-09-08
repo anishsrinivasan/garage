@@ -1,0 +1,22 @@
+{
+  "name": "@preowned-cars/mcp",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "bin": { "torque-mcp": "./src/index.ts" },
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "dev": "bun run --watch src/index.ts",
+    "build": "tsc --noEmit",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@preowned-cars/db": "workspace:*",
+    "@preowned-cars/shared": "workspace:*",
+    "drizzle-orm": "^0.39.0",
+    "postgres": "^3.4.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": { "@types/bun": "^1.2.0", "typescript": "^5.7.0" }
+}
