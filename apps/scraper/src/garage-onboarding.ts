@@ -89,6 +89,7 @@ export function extractPhoneFromBio(bio: string | null): string | null {
 }
 
 type ProfileJson = {
+  username?: string;
   full_name?: string;
   biography?: string;
   profile_pic_url_hd?: string;
@@ -99,11 +100,27 @@ type ProfileJson = {
   follower_count?: number;
 };
 
-function findProfile(node: unknown, depth = 0): ProfileJson | null {
+/**
+ * Finds the requested profile in the page's JSON payload.
+ *
+ * `wanted` is not optional in practice. An Instagram profile page ships several
+ * profile-shaped objects — the account you asked for, and the suggested and
+ * related accounts alongside it — and this used to return whichever came first
+ * in a depth-first walk. Asking for three different accounts in one process
+ * returned the same display name for all three, because the same suggested
+ * account happened to sit earlier in each payload. The admin's add-a-garage
+ * preview would then show one account's name, bio and avatar while saving them
+ * against a different handle.
+ */
+function findProfile(
+  node: unknown,
+  wanted: string,
+  depth = 0,
+): ProfileJson | null {
   if (depth > 12 || node == null || typeof node !== "object") return null;
   if (Array.isArray(node)) {
     for (const entry of node) {
-      const found = findProfile(entry, depth + 1);
+      const found = findProfile(entry, wanted, depth + 1);
       if (found) return found;
     }
     return null;
@@ -112,12 +129,14 @@ function findProfile(node: unknown, depth = 0): ProfileJson | null {
   if (
     typeof obj.biography === "string" &&
     (typeof obj.profile_pic_url === "string" ||
-      typeof obj.profile_pic_url_hd === "string")
+      typeof obj.profile_pic_url_hd === "string") &&
+    typeof obj.username === "string" &&
+    obj.username.toLowerCase() === wanted.toLowerCase()
   ) {
     return obj as ProfileJson;
   }
   for (const value of Object.values(obj)) {
-    const found = findProfile(value, depth + 1);
+    const found = findProfile(value, wanted, depth + 1);
     if (found) return found;
   }
   return null;
@@ -175,12 +194,12 @@ export async function fetchInstagramProfile(
     let profile: ProfileJson | null = null;
     for (const blob of blobs) {
       try {
-        profile = findProfile(JSON.parse(blob));
+        profile = findProfile(JSON.parse(blob), handle);
       } catch {
         const start = blob.indexOf("{");
         if (start === -1) continue;
         try {
-          profile = findProfile(JSON.parse(blob.slice(start)));
+          profile = findProfile(JSON.parse(blob.slice(start)), handle);
         } catch {
           continue;
         }
@@ -213,7 +232,17 @@ export async function fetchInstagramProfile(
       followers:
         profile?.edge_followed_by?.count ?? profile?.follower_count ?? null,
       isPrivate: Boolean(profile?.is_private),
-      exists: true,
+      // This was hardcoded `true`, so it reported success whenever the page
+      // merely loaded — and Instagram serves its "page not found" with HTTP
+      // 200, so a handle that does not exist came back as a real account with
+      // the handle echoed as its name. That is how four invented rental-broker
+      // handles once passed the admin's preview and were seeded.
+      //
+      // A real profile always carries an og:title ("German Mechatronics
+      // (@germanmechatronics) • Instagram…"); the not-found page carries no og
+      // tags at all. That, or a username-matched profile object in the JSON
+      // payload, is what actually distinguishes the two.
+      exists: profile != null || ogTitle.trim().length > 0,
     };
   } catch (err) {
     console.warn(
