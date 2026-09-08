@@ -8,9 +8,9 @@ import {
   garages,
   dealerSources,
   listingReports,
-} from "@preowned-cars/db";
-import { assessPrice, parseIndianPrice } from "@preowned-cars/shared";
-import { normalizeListingFields } from "@preowned-cars/verticals/cars";
+} from "@classifieds/db";
+import { assessPrice, parseIndianPrice } from "@classifieds/shared";
+import { normalizeListingFields } from "@classifieds/verticals/cars";
 import { requireSession } from "./session";
 
 /**

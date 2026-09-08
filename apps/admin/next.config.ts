@@ -2,9 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   transpilePackages: [
-    "@preowned-cars/db",
-    "@preowned-cars/shared",
-    "@preowned-cars/scraper",
+    "@classifieds/db",
+    "@classifieds/shared",
+    "@classifieds/scraper",
   ],
   images: {
     remotePatterns: [{ protocol: "https", hostname: "**" }],

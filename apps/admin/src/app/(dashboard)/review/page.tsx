@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getReviewQueue } from "@/lib/admin-queries";
 import { PageHeader, EmptyState } from "@/components/ui";
 import { ReviewActions } from "@/components/review-actions";
-import { extractPriceCandidates } from "@preowned-cars/shared";
+import { extractPriceCandidates } from "@classifieds/shared";
 
 export const dynamic = "force-dynamic";
 

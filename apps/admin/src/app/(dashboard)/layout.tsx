@@ -46,7 +46,7 @@ export default async function DashboardLayout({
             <Gauge className="h-4 w-4 text-ink-950" strokeWidth={2.5} />
           </span>
           <div>
-            <p className="font-display text-sm font-bold leading-none">Torque</p>
+            <p className="font-display text-sm font-bold leading-none">Classifieds</p>
             <p className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-ink-500">
               Admin
             </p>

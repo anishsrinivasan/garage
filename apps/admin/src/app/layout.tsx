@@ -15,7 +15,7 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: { default: "Torque Admin", template: "%s · Torque Admin" },
+  title: { default: "Classifieds Admin", template: "%s · Classifieds Admin" },
   // An internal dashboard has no business in a search index.
   robots: { index: false, follow: false, nocache: true },
 };

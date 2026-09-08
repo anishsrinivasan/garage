@@ -1,6 +1,6 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { db, users, sessions, accounts, verifications } from "@preowned-cars/db";
+import { db, users, sessions, accounts, verifications } from "@classifieds/db";
 
 /**
  * Admin authentication.

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { and, eq, ne, sql } from "drizzle-orm";
-import { db, cities, localities, listings } from "@preowned-cars/db";
+import { db, cities, localities, listings } from "@classifieds/db";
 import { requireSession } from "./session";
 
 /**

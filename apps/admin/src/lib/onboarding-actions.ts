@@ -9,7 +9,7 @@ import {
   guessCityFromBio,
   extractPhoneFromBio,
   type InstagramProfile,
-} from "@preowned-cars/scraper/onboarding";
+} from "@classifieds/scraper/onboarding";
 import { requireSession } from "./session";
 import { triggerScrape } from "./cron-client";
 

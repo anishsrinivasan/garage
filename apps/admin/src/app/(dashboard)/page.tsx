@@ -9,7 +9,7 @@ import {
 import { getCronHealth, isCronConfigured } from "@/lib/cron-client";
 import { PageHeader, StatCard, Panel, Badge, EmptyState } from "@/components/ui";
 import { RunControls } from "@/components/run-controls";
-import { relativeAge } from "@preowned-cars/shared";
+import { relativeAge } from "@classifieds/shared";
 
 export const dynamic = "force-dynamic";
 

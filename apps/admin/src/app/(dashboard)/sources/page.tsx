@@ -2,7 +2,7 @@ import { getAdminSources, getRecentRuns } from "@/lib/admin-queries";
 import { PageHeader, Panel, Badge, EmptyState } from "@/components/ui";
 import { SourceToggle } from "@/components/source-toggle";
 import { RunControls } from "@/components/run-controls";
-import { relativeAge } from "@preowned-cars/shared";
+import { relativeAge } from "@classifieds/shared";
 
 export const dynamic = "force-dynamic";
 

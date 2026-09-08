@@ -1,5 +1,5 @@
 {
-  "name": "@preowned-cars/admin",
+  "name": "@classifieds/admin",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -10,9 +10,9 @@
     "create-user": "bun run scripts/create-user.ts"
   },
   "dependencies": {
-    "@preowned-cars/db": "workspace:*",
-    "@preowned-cars/scraper": "workspace:*",
-    "@preowned-cars/shared": "workspace:*",
+    "@classifieds/db": "workspace:*",
+    "@classifieds/scraper": "workspace:*",
+    "@classifieds/shared": "workspace:*",
     "better-auth": "^1.2.0",
     "drizzle-orm": "^0.39.0",
     "lucide-react": "^1.8.0",
@@ -20,8 +20,8 @@
     "postgres": "^3.4.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "@preowned-cars/verticals": "workspace:*",
-    "@preowned-cars/pipeline": "workspace:*"
+    "@classifieds/verticals": "workspace:*",
+    "@classifieds/pipeline": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

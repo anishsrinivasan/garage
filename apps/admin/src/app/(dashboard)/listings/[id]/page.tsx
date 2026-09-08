@@ -5,7 +5,7 @@ import { getAdminListing } from "@/lib/admin-queries";
 import { PageHeader, Panel, Badge } from "@/components/ui";
 import { ListingEditor } from "@/components/listing-editor";
 import { HeroPicker } from "@/components/hero-picker";
-import { relativeAge } from "@preowned-cars/shared";
+import { relativeAge } from "@classifieds/shared";
 
 export const dynamic = "force-dynamic";
 

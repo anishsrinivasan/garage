@@ -49,7 +49,7 @@ function LoginForm() {
             <Gauge className="h-4 w-4 text-ink-950" strokeWidth={2.5} />
           </span>
           <div>
-            <p className="font-display text-lg font-bold leading-none">Torque</p>
+            <p className="font-display text-lg font-bold leading-none">Classifieds</p>
             <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-500">
               Admin
             </p>

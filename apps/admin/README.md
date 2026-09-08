@@ -1,4 +1,4 @@
-# Torque Admin
+# Classifieds Admin
 
 Internal dashboard for managing the catalogue. Next.js App Router, better-auth
 (email + password), same design tokens as the public site, `noindex`.

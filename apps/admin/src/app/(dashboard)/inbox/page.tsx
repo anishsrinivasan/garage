@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getReports, getFeedback } from "@/lib/admin-queries";
 import { PageHeader, Panel, Badge, EmptyState } from "@/components/ui";
 import { ReportActions } from "@/components/report-actions";
-import { relativeAge } from "@preowned-cars/shared";
+import { relativeAge } from "@classifieds/shared";
 
 export const dynamic = "force-dynamic";
 

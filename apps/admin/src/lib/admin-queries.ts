@@ -9,9 +9,9 @@ import {
   listingReports,
   feedback,
   llmUsageLogs,
-} from "@preowned-cars/db";
+} from "@classifieds/db";
 import { and, asc, count, desc, eq, ilike, isNotNull, isNull, or, sql, type SQL } from "drizzle-orm";
-import { STALE_AFTER_DAYS } from "@preowned-cars/shared";
+import { STALE_AFTER_DAYS } from "@classifieds/shared";
 
 /**
  * Read models for the admin dashboard.
