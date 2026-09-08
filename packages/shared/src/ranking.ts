@@ -42,11 +42,25 @@ export const MIN_RECENCY_MULTIPLIER = 0.35;
  * cars" without letting one outlier dominate, and a bad parse costs a few
  * positions instead of the whole front page.
  */
+/**
+ * Best match favours the affordable end.
+ *
+ * These tiers used to run the other way — a ₹50L car scored 1.45 against a
+ * ₹4L one — on the theory that people came to look at interesting cars. As a
+ * marketplace that is backwards: someone browsing without a filter is far more
+ * likely to be shopping than window-shopping, and the top of the feed should
+ * be things they could actually buy. Paired with the recency curve, "best
+ * match" now means cheap and recently posted.
+ *
+ * The spread is deliberately gentle (1.2 to 0.8). A stronger tilt would bury
+ * every premium listing regardless of how good it is, and price is one signal
+ * among several here, not a sort.
+ */
 export const PRICE_TIERS: Array<{ min: number; multiplier: number }> = [
-  { min: 50_00_000, multiplier: 1.45 },
-  { min: 25_00_000, multiplier: 1.3 },
-  { min: 10_00_000, multiplier: 1.15 },
-  { min: 0, multiplier: 1.0 },
+  { min: 50_00_000, multiplier: 0.8 },
+  { min: 25_00_000, multiplier: 0.9 },
+  { min: 10_00_000, multiplier: 1.0 },
+  { min: 0, multiplier: 1.2 },
 ];
 
 export function priceTierMultiplier(price: number | null | undefined): number {
@@ -57,7 +71,13 @@ export function priceTierMultiplier(price: number | null | undefined): number {
 export type RankingWeights = typeof RANKING_WEIGHTS;
 
 export const RANKING_WEIGHTS = {
-  premiumMake: 1.25,
+  /**
+   * Near-neutral. A marque boost pulls in the opposite direction to the price
+   * tiers above — premium makes are exactly the expensive listings — so leaving
+   * it at 1.25 would have cancelled out the change. Kept slightly above 1
+   * because a well-known marque is still a mild quality signal.
+   */
+  premiumMake: 1.05,
   hasMedia: 1.6,
   /** Media that survived vision scoring beats an unvetted 8-image dump. */
   hasScoredMedia: 1.15,
