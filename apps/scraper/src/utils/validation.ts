@@ -1,5 +1,5 @@
 import type { MediaItem, NormalizedListing } from "@classifieds/shared";
-import { MIN_PRICE, MAX_PRICE } from "@classifieds/shared";
+import { MIN_PRICE, MAX_PRICE, MIN_RENT, MAX_RENT } from "@classifieds/shared";
 
 const MIN_YEAR = 1990;
 const MAX_YEAR = new Date().getFullYear() + 1;
@@ -25,9 +25,14 @@ export function validateListing(listing: NormalizedListing): ValidationResult {
   }
 
   if (listing.price != null) {
-    if (listing.price < MIN_PRICE || listing.price > MAX_PRICE) {
+    // A monthly rent and a sale price are different quantities and need
+    // different bounds; sharing them rejected genuine sub-₹25,000 rents.
+    const isRent = listing.vertical === "rentals";
+    const min = isRent ? MIN_RENT : MIN_PRICE;
+    const max = isRent ? MAX_RENT : MAX_PRICE;
+    if (listing.price < min || listing.price > max) {
       errors.push(
-        `price ${listing.price} outside ₹${MIN_PRICE}–₹${MAX_PRICE} range`,
+        `${isRent ? "rent" : "price"} ${listing.price} outside ₹${min}–₹${max} range`,
       );
     }
   }
