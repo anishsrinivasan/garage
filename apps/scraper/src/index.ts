@@ -28,7 +28,7 @@ async function main() {
   if (source === "maintenance") {
     const result = await runMaintenance();
     console.log(
-      `[main] maintenance: ${result.delisted} delisted, ${result.demoted} demoted into ${result.clusters} cluster(s)`,
+      `[main] maintenance: ${result.delisted} delisted, ${result.demoted} demoted into ${result.clusters} cluster(s), ${result.alertsSent} alert(s) sent${result.alertsFailed > 0 ? `, ${result.alertsFailed} failed` : ""}`,
     );
     return;
   }

@@ -14,7 +14,7 @@ import { createCars24Adapter } from "./adapters/cars24";
 import { createCardekhoAdapter } from "./adapters/cardekho";
 import { createInstagramRentalsAdapter } from "./adapters/instagram-rentals";
 import { runAdapter, type RunOptions } from "./runner";
-import { delistStale } from "@preowned-cars/pipeline";
+import { delistStale, deliverPendingAlerts } from "@preowned-cars/pipeline";
 import { rebuildDedupeClusters } from "./dedupe-runner";
 import type { ScraperAdapter } from "@preowned-cars/shared";
 
@@ -145,16 +145,29 @@ export type MaintenanceSummary = {
   delisted: number;
   clusters: number;
   demoted: number;
+  alertsSent: number;
+  alertsFailed: number;
 };
 
 /** Age sweep + cluster rebuild, with no scraping. Safe to run on a schedule. */
 export async function runMaintenance(): Promise<MaintenanceSummary> {
   const delisted = await delistStale();
   const dedupe = await rebuildDedupeClusters();
+  // Sending is separate from matching on purpose: matching runs inside the
+  // scrape, delivery runs on the sweep, so a transport outage delays alerts
+  // rather than losing the matches that produced them.
+  const alerts = await deliverPendingAlerts().catch((err: unknown) => {
+    console.warn(
+      `[maintenance] alert delivery failed — ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return { sent: 0, failed: 0, skipped: 0 };
+  });
   return {
     delisted,
     clusters: dedupe.clusters,
     demoted: dedupe.demoted,
+    alertsSent: alerts.sent,
+    alertsFailed: alerts.failed,
   };
 }
 

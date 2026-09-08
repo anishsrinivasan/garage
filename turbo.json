@@ -1,6 +1,7 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "globalEnv": [
+    "ALERT_FROM_EMAIL",
     "ANTHROPIC_API_KEY",
     "BETTER_AUTH_SECRET",
     "BETTER_AUTH_URL",
@@ -32,7 +33,9 @@
     "R2_BUCKET",
     "R2_PUBLIC_BASE_URL",
     "R2_SECRET_ACCESS_KEY",
+    "RESEND_API_KEY",
     "REVALIDATE_SECRET",
+    "TELEGRAM_BOT_TOKEN",
     "WEB_REVALIDATE_URL"
   ],
   "tasks": {
