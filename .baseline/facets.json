@@ -1,13 +1,13 @@
 {
-  "added_this_week": "58",
+  "added_this_week": "73",
   "body_pills": [
     [
       "SUV",
-      "150"
+      "158"
     ],
     [
       "Sedan",
-      "110"
+      "116"
     ],
     [
       "Hatchback",
@@ -19,7 +19,7 @@
     ],
     [
       "Coupe",
-      "6"
+      "7"
     ],
     [
       "Convertible",
@@ -33,11 +33,11 @@
   "fuel_pills": [
     [
       "Petrol",
-      "263"
+      "268"
     ],
     [
       "Diesel",
-      "170"
+      "180"
     ],
     [
       "Hybrid",
@@ -57,16 +57,16 @@
     ]
   ],
   "garages_stat": "15",
-  "live_listings": "466",
-  "total_line": "466",
+  "live_listings": "481",
+  "total_line": "481",
   "transmission_pills": [
     [
       "Automatic",
-      "207"
+      "220"
     ],
     [
       "Manual",
-      "176"
+      "177"
     ]
   ]
 }

@@ -4,6 +4,7 @@ import { listings, dealerSources, scrapeRuns } from "@preowned-cars/db";
 import type { ScraperAdapter, NormalizedListing } from "@preowned-cars/shared";
 import { assessPrice } from "@preowned-cars/shared";
 import { normalizeListingFields } from "@preowned-cars/verticals/cars";
+import { getVertical } from "@preowned-cars/verticals";
 import { createHash } from "crypto";
 import { validateListing } from "./utils/validation";
 import { delistUnseen, reactivate } from "@preowned-cars/pipeline";
@@ -146,6 +147,10 @@ async function upsertListings(
         delistedAt: null,
         needsReview,
         reviewReason: reviewReasons.join("; ") || null,
+        vertical: listing.vertical ?? "cars",
+        pricePeriod: listing.pricePeriod ?? "once",
+        cityId: listing.cityId ?? null,
+        localityId: listing.localityId ?? null,
       })
       .onConflictDoUpdate({
         target: [listings.sourcePlatform, listings.sourceUrl],
@@ -170,6 +175,9 @@ async function upsertListings(
           reviewReason: reviewReasons.join("; ") || null,
           updatedAt: now,
           contentHash,
+          // Locality can improve between runs as aliases are added, so it is
+          // refreshed rather than frozen at first sight.
+          ...(listing.localityId ? { localityId: listing.localityId } : {}),
         },
       })
       .returning({
@@ -180,6 +188,41 @@ async function upsertListings(
     if (result.length > 0) {
       const row = result[0]!;
       ids.push(row.id);
+
+      // Domain-specific fields go to the vertical's own table. The core never
+      // touches it, which is what lets a new vertical add columns without the
+      // pipeline noticing.
+      //
+      // The cars marketplace adapters still write the legacy columns on the core
+      // row rather than an attrs bag, so derive one for them. Without this their
+      // listings get a core row and no attributes, and loadAttrs returns nothing
+      // for a listing that plainly has a make and a model.
+      const attrs =
+        listing.attrs ??
+        ((listing.vertical ?? "cars") === "cars"
+          ? {
+              make: listing.make,
+              model: listing.model,
+              variant: listing.variant ?? null,
+              year: listing.year!,
+              kmDriven: listing.kmDriven ?? null,
+              fuelType: listing.fuelType ?? null,
+              transmission: listing.transmission ?? null,
+              ownerCount: listing.ownerCount ?? null,
+              color: listing.color ?? null,
+              bodyType: listing.bodyType ?? null,
+            }
+          : null);
+
+      if (attrs) {
+        try {
+          await getVertical(listing.vertical ?? "cars").persistAttrs(row.id, attrs);
+        } catch (err) {
+          console.warn(
+            `[runner] failed to persist attrs for ${listing.sourceUrl}: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      }
       // A row inserted by this statement has firstSeenAt === now; one that
       // already existed keeps its original value.
       if (Math.abs(row.firstSeenAt.getTime() - now.getTime()) < 1000) newCount++;

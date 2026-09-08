@@ -12,14 +12,20 @@ import { db, dealerSources, garages } from "@preowned-cars/db";
 import { createInstagramAdapter } from "./adapters/instagram";
 import { createCars24Adapter } from "./adapters/cars24";
 import { createCardekhoAdapter } from "./adapters/cardekho";
+import { createInstagramRentalsAdapter } from "./adapters/instagram-rentals";
 import { runAdapter, type RunOptions } from "./runner";
 import { delistStale } from "@preowned-cars/pipeline";
 import { rebuildDedupeClusters } from "./dedupe-runner";
 import type { ScraperAdapter } from "@preowned-cars/shared";
 
-export type SourceName = "instagram" | "cars24" | "cardekho";
+export type SourceName = "instagram" | "instagram-rentals" | "cars24" | "cardekho";
 
-export const ALL_SOURCES: SourceName[] = ["instagram", "cars24", "cardekho"];
+export const ALL_SOURCES: SourceName[] = [
+  "instagram",
+  "instagram-rentals",
+  "cars24",
+  "cardekho",
+];
 
 export type DealerInfo = {
   dealerSourceId: string;
@@ -29,7 +35,15 @@ export type DealerInfo = {
   city: string | null;
 };
 
-export async function fetchDealers(platform: string): Promise<DealerInfo[]> {
+/**
+ * Active sources for a platform, optionally narrowed to one vertical. A car
+ * dealer and a rental broker are both "an Instagram handle"; the vertical column
+ * is what tells them apart.
+ */
+export async function fetchDealers(
+  platform: string,
+  vertical?: string,
+): Promise<DealerInfo[]> {
   return db
     .select({
       dealerSourceId: dealerSources.id,
@@ -45,6 +59,7 @@ export async function fetchDealers(platform: string): Promise<DealerInfo[]> {
         eq(dealerSources.platform, platform),
         eq(dealerSources.isActive, true),
         eq(garages.isActive, true),
+        vertical ? eq(dealerSources.vertical, vertical) : undefined,
       ),
     );
 }
@@ -61,7 +76,7 @@ export async function buildAdapters(
   const adapters: ScraperAdapter[] = [];
 
   if (sources.includes("instagram")) {
-    let dealers = await fetchDealers("instagram");
+    let dealers = await fetchDealers("instagram", "cars");
     if (options.handles?.length) {
       const wanted = new Set(options.handles.map((h) => h.replace(/^@/, "")));
       dealers = dealers.filter((d) => wanted.has(d.handle));
@@ -72,6 +87,19 @@ export async function buildAdapters(
       );
     } else {
       adapters.push(createInstagramAdapter(dealers));
+    }
+  }
+
+  if (sources.includes("instagram-rentals")) {
+    let brokers = await fetchDealers("instagram", "rentals");
+    if (options.handles?.length) {
+      const wanted = new Set(options.handles.map((h) => h.replace(/^@/, "")));
+      brokers = brokers.filter((b) => wanted.has(b.handle));
+    }
+    if (brokers.length === 0) {
+      console.warn("[scraper] no active rental brokers matched — skipping rentals");
+    } else {
+      adapters.push(createInstagramRentalsAdapter(brokers));
     }
   }
 

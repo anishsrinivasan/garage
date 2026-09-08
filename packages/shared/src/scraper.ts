@@ -37,7 +37,26 @@ export type MediaItem = {
   scoreReason?: string | null;
 };
 
+/**
+ * A listing as an adapter produces it: the core fields every vertical shares,
+ * plus an opaque `attrs` bag the owning vertical understands.
+ *
+ * The car fields below are retained while the cars adapters still populate them
+ * directly; they are ignored for any other vertical. New verticals put
+ * everything domain-specific in `attrs`.
+ */
 export type NormalizedListing = {
+  /** Which vertical owns this row. Defaults to cars for the legacy adapters. */
+  vertical?: string;
+  /** Domain-specific fields, persisted by the vertical's persistAttrs. */
+  attrs?: unknown;
+  /** Free-text location as written by the seller, before locality resolution. */
+  locationText?: string | null;
+  localityId?: string | null;
+  cityId?: string | null;
+  /** "once" for a sale price, "month" for rent. */
+  pricePeriod?: "once" | "month";
+
   make: string;
   model: string;
   variant?: string;

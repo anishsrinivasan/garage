@@ -24,6 +24,7 @@ export const garages = torqueSchema.table(
     slug: text("slug").notNull(),
     name: text("name").notNull(),
     kind: text("kind").notNull().default("dealer"),
+    vertical: text("vertical").notNull().default("cars"),
     description: text("description"),
     city: text("city"),
     phone: text("phone"),
@@ -38,6 +39,7 @@ export const garages = torqueSchema.table(
   (table) => ({
     uniqueSlug: uniqueIndex("uq_garage_slug").on(table.slug),
     idxKind: index("idx_garage_kind").on(table.kind),
+    idxVertical: index("idx_orgs_vertical").on(table.vertical),
     idxCity: index("idx_garage_city").on(table.city),
     idxIsActive: index("idx_garage_active").on(table.isActive),
   }),

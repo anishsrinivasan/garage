@@ -30,6 +30,9 @@ export const dealerSources = torqueSchema.table(
     platform: text("platform").notNull(),
     handle: text("handle").notNull(),
     sourceType: text("source_type").notNull().default("instagram_dealer"),
+    /** Which vertical this source feeds. A car dealer and a rental broker are
+     *  both "an Instagram handle"; nothing else in the row distinguishes them. */
+    vertical: text("vertical").notNull().default("cars"),
     config: jsonb("config").$type<Record<string, unknown>>().default({}),
     isActive: boolean("is_active").notNull().default(true),
     lastScrapedAt: timestamp("last_scraped_at"),
@@ -47,5 +50,6 @@ export const dealerSources = torqueSchema.table(
     idxIsActive: index("idx_dealer_active").on(table.isActive),
     idxGarageId: index("idx_dealer_garage_id").on(table.garageId),
     idxSourceType: index("idx_dealer_source_type").on(table.sourceType),
+    idxVertical: index("idx_sources_vertical").on(table.vertical),
   }),
 );
