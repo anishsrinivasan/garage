@@ -1,4 +1,10 @@
-import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
+import {
+  chromium,
+  type Browser,
+  type BrowserContext,
+  type BrowserContextOptions,
+  type Page,
+} from "playwright";
 import { existsSync } from "fs";
 import { resolve } from "path";
 import { and, eq, gte, inArray, sql } from "drizzle-orm";
@@ -15,6 +21,21 @@ type DealerInfo = {
 function isReelUrl(url: string): boolean {
   return /\/reel\//.test(url);
 }
+
+/**
+ * Raised when Instagram challenges the session rather than the target. Carried
+ * as its own type so the run can bench the session and fail loudly, instead of
+ * treating it as one more empty handle.
+ */
+export class ChallengeError extends Error {
+  constructor(
+    readonly kind: string,
+    detail: string,
+  ) {
+    super(detail);
+    this.name = "ChallengeError";
+  }
+}
 import type {
   ScraperAdapter,
   ScraperConfig,
@@ -27,7 +48,17 @@ import { INSTAGRAM_CONFIG } from "./instagram-config";
 import { extractCarDataForPostsBatch, type LlmImage } from "@preowned-cars/verticals/cars";
 import { ProgressBar } from "@preowned-cars/pipeline";
 import { isR2Enabled, uploadToR2 } from "@preowned-cars/pipeline";
-import { extractPostMedia, extractShortcode } from "@preowned-cars/pipeline";
+import {
+  extractPostMedia,
+  extractShortcode,
+  leaseSessionOrFile,
+  reportOutcome,
+  isPooled,
+  detectChallenge,
+  impliesSessionProblem,
+  isTargetProblem,
+  type PooledSession,
+} from "@preowned-cars/pipeline";
 import { extractFrames } from "@preowned-cars/pipeline";
 import {
   scoreImages,
@@ -431,17 +462,29 @@ async function scrapeProfilePosts(
 ): Promise<RawPost[]> {
   const profileUrl = `${INSTAGRAM_CONFIG.baseUrl}/${handle}/`;
   console.log(`[instagram] @${handle}: loading profile page ${profileUrl}`);
-  await page.goto(profileUrl, {
+  const response = await page.goto(profileUrl, {
     waitUntil: "domcontentloaded",
     timeout: INSTAGRAM_CONFIG.navigationTimeoutMs,
   });
   await delay(3000);
   await dismissModals(page);
 
-  const notFoundText = await page.locator("text=Sorry, this page isn't available").count();
-  if (notFoundText > 0) {
-    console.warn(`[instagram] @${handle}: profile not available`);
-    return [];
+  // "Nothing posted" and "Instagram stopped talking to us" previously looked
+  // identical — an empty result reported as success. That ambiguity is exactly
+  // how a broken scraper stayed invisible for fifteen weeks.
+  const challenge = await detectChallenge(page, response?.status());
+  if (challenge.kind) {
+    if (isTargetProblem(challenge.kind)) {
+      console.warn(
+        `[instagram] @${handle}: profile unavailable (${challenge.kind}) — skipping this handle`,
+      );
+      return [];
+    }
+    if (impliesSessionProblem(challenge.kind)) {
+      // Throw: this is the session, not the handle, so continuing would burn
+      // every remaining handle against a session Instagram has already blocked.
+      throw new ChallengeError(challenge.kind, challenge.detail ?? challenge.kind);
+    }
   }
 
   const postSelector = 'a[href*="/p/"], a[href*="/reel/"]';
@@ -597,12 +640,21 @@ export function createInstagramAdapter(
       let totalFound = 0;
 
       let browser: Browser | null = null;
+      let session: PooledSession | null = null;
+      // A challenge means Instagram stopped talking to us, which must not be
+      // reported as "this dealer posted nothing".
+      let challengeDetail: string | null = null;
       try {
-        const hasSession = existsSync(SESSION_STATE_PATH);
-        if (!hasSession) {
+        // The pool rotates identities and benches one that gets challenged.
+        // Falls back to the legacy single file so an existing install keeps
+        // working with nothing to set up.
+        session = await leaseSessionOrFile(SESSION_STATE_PATH);
+        if (!session) {
           console.warn(
-            "[instagram] No session state found — run instagram-login.ts first. Scraping without auth may return 0 results.",
+            "[instagram] No usable session — import one with `bun run apps/scraper/src/session-import.ts`, or run instagram-login.ts. Scraping without auth returns 0 results.",
           );
+        } else {
+          console.log(`[instagram] using session: ${session.label}`);
         }
 
         browser = await chromium.launch({
@@ -618,7 +670,11 @@ export function createInstagramAdapter(
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
           viewport: { width: 1280, height: 720 },
           locale: "en-IN",
-          ...(hasSession ? { storageState: SESSION_STATE_PATH } : {}),
+          // Playwright accepts storageState either as a path or as the parsed
+          // object; the pool holds the object.
+          ...(session
+            ? { storageState: session.state as BrowserContextOptions["storageState"] }
+            : {}),
         });
 
         const page = await context.newPage();
@@ -814,6 +870,14 @@ export function createInstagramAdapter(
             );
             handleBar.tick(`@${handle}: ${handleListings} listings`);
           } catch (err) {
+            if (err instanceof ChallengeError) {
+              challengeDetail = `${err.kind}: ${err.message}`;
+              console.error(
+                `[instagram] @${handle}: ${challengeDetail} — stopping the run and benching this session`,
+              );
+              handleBar.done("challenged");
+              break;
+            }
             console.error(
               `[instagram] @${handle}: handle failed: ${err instanceof Error ? err.message : String(err)}`,
             );
@@ -837,6 +901,18 @@ export function createInstagramAdapter(
         await context.close();
       } finally {
         if (browser) await browser.close();
+        if (session && isPooled(session)) {
+          await reportOutcome(
+            session.id,
+            challengeDetail ? "challenged" : "ok",
+            challengeDetail ?? undefined,
+          ).catch(() => undefined);
+        }
+      }
+
+      if (challengeDetail) {
+        // Fail loudly rather than returning an empty-but-successful result.
+        throw new Error(`Instagram challenge: ${challengeDetail}`);
       }
 
       return {

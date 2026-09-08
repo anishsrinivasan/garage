@@ -16,7 +16,8 @@
     "croner": "^9.0.0",
     "drizzle-orm": "^0.39.0",
     "hono": "^4.6.0",
-    "postgres": "^3.4.0"
+    "postgres": "^3.4.0",
+    "@preowned-cars/pipeline": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "^1.2.0",

@@ -22,6 +22,7 @@ import { Cron } from "croner";
 import { desc, eq, sql } from "drizzle-orm";
 import { db, scrapeRuns, listings, dealerSources, garages } from "@preowned-cars/db";
 import { ALL_SOURCES, type SourceName } from "@preowned-cars/scraper";
+import { getPoolHealth } from "@preowned-cars/pipeline";
 import { loadConfig } from "./config";
 import {
   enqueue,
@@ -87,7 +88,7 @@ app.get("/health", (c) =>
  */
 app.get("/status", async (c) => {
   try {
-    const [runs, [counts], sources] = await Promise.all([
+    const [runs, [counts], sources, sessionPool] = await Promise.all([
       db
         .select({
           sourcePlatform: scrapeRuns.sourcePlatform,
@@ -120,6 +121,9 @@ app.get("/status", async (c) => {
         })
         .from(dealerSources)
         .innerJoin(garages, eq(garages.id, dealerSources.garageId)),
+      // An empty or fully-cooled pool is the single most likely cause of a run
+      // returning nothing, so it belongs next to the run history.
+      getPoolHealth().catch(() => null),
     ]);
 
     const lastByPlatform = new Map<string, (typeof runs)[number]>();
@@ -131,6 +135,7 @@ app.get("/status", async (c) => {
 
     return c.json({
       catalogue: counts,
+      sessionPool,
       lastRunPerSource: Object.fromEntries(lastByPlatform),
       recentRuns: runs,
       sources: sources.length,

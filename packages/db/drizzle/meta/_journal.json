@@ -92,6 +92,13 @@
       "when": 1788800000000,
       "tag": "0012_core_listings_split",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1788900000000,
+      "tag": "0013_ig_session_pool",
+      "breakpoints": true
     }
   ]
 }

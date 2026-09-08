@@ -23,7 +23,8 @@
     "dev:cron": "bun run --cwd apps/cron dev",
     "scrape:maintenance": "bun run apps/scraper/src/index.ts --source maintenance",
     "admin:create-user": "bun run --cwd apps/admin create-user",
-    "typecheck": "turbo lint"
+    "typecheck": "turbo lint",
+    "session:import": "bun run apps/scraper/src/session-import.ts"
   },
   "devDependencies": {
     "turbo": "^2.4.0",
