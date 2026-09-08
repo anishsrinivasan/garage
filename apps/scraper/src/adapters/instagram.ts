@@ -17,15 +17,15 @@ import type {
   ScrapeResult,
   ScraperAdapter,
   ScraperConfig,
-} from "@preowned-cars/shared";
-import { reconcilePrice, assessPrice } from "@preowned-cars/shared";
-import { scoreAndOrderMedia } from "@preowned-cars/pipeline";
-import { extractPostsBatch } from "@preowned-cars/verticals";
+} from "@classifieds/shared";
+import { reconcilePrice, assessPrice } from "@classifieds/shared";
+import { scoreAndOrderMedia } from "@classifieds/pipeline";
+import { extractPostsBatch } from "@classifieds/verticals";
 import {
   carsVertical,
   normalizeListingFields,
   type CarAttrs,
-} from "@preowned-cars/verticals/cars";
+} from "@classifieds/verticals/cars";
 import { INSTAGRAM_CONFIG } from "./instagram-config";
 import {
   collectPosts,

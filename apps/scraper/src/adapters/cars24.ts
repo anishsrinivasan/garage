@@ -5,7 +5,7 @@ import type {
   ScrapeResult,
   ScrapeError,
   NormalizedListing,
-} from "@preowned-cars/shared";
+} from "@classifieds/shared";
 import { CARS24_CONFIG } from "./cars24-config";
 
 type Cars24ListingUrl = {

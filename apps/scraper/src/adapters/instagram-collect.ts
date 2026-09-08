@@ -19,8 +19,8 @@ import {
 } from "playwright";
 import { resolve } from "path";
 import { and, eq, gte, inArray, sql } from "drizzle-orm";
-import { db, scrapedPosts } from "@preowned-cars/db";
-import type { MediaItem, MediaSource, ScrapeError } from "@preowned-cars/shared";
+import { db, scrapedPosts } from "@classifieds/db";
+import type { MediaItem, MediaSource, ScrapeError } from "@classifieds/shared";
 import {
   extractPostMedia,
   extractShortcode,
@@ -36,8 +36,8 @@ import {
   ProgressBar,
   type PooledSession,
   type ScorableImage,
-} from "@preowned-cars/pipeline";
-import type { LlmImage } from "@preowned-cars/verticals";
+} from "@classifieds/pipeline";
+import type { LlmImage } from "@classifieds/verticals";
 import { INSTAGRAM_CONFIG } from "./instagram-config";
 
 export type BrokerInfo = {

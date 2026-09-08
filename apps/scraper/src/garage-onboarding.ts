@@ -12,9 +12,9 @@ import { chromium, type Browser } from "playwright";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { and, eq } from "drizzle-orm";
-import { db, garages, dealerSources } from "@preowned-cars/db";
-import { normalizeCity, normalizePhone } from "@preowned-cars/verticals/cars";
-import { isR2Enabled, uploadToR2 } from "@preowned-cars/pipeline";
+import { db, garages, dealerSources } from "@classifieds/db";
+import { normalizeCity, normalizePhone } from "@classifieds/verticals/cars";
+import { isR2Enabled, uploadToR2 } from "@classifieds/pipeline";
 
 const SESSION_STATE_PATH = resolve(
   process.cwd(),

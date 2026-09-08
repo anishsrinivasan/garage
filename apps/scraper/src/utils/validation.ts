@@ -1,5 +1,5 @@
-import type { MediaItem, NormalizedListing } from "@preowned-cars/shared";
-import { MIN_PRICE, MAX_PRICE } from "@preowned-cars/shared";
+import type { MediaItem, NormalizedListing } from "@classifieds/shared";
+import { MIN_PRICE, MAX_PRICE } from "@classifieds/shared";
 
 const MIN_YEAR = 1990;
 const MAX_YEAR = new Date().getFullYear() + 1;

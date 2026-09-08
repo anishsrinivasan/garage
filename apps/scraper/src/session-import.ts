@@ -14,7 +14,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { eq } from "drizzle-orm";
-import { db, igSessions } from "@preowned-cars/db";
+import { db, igSessions } from "@classifieds/db";
 
 const DEFAULT_PATH = resolve(
   process.cwd(),

@@ -17,7 +17,7 @@
  */
 
 import { and, eq } from "drizzle-orm";
-import { db, cities, localities } from "@preowned-cars/db";
+import { db, cities, localities } from "@classifieds/db";
 
 const OVERPASS = "https://overpass-api.de/api/interpreter";
 
@@ -134,7 +134,7 @@ async function fetchOsmLocalities(cityName: string): Promise<OsmNode[]> {
     headers: {
       "content-type": "application/x-www-form-urlencoded",
       accept: "application/json",
-      "user-agent": "torque-classifieds/0.1 (locality seeding; contact via repo)",
+      "user-agent": "classifieds/0.1 (locality seeding; contact via repo)",
     },
     body: new URLSearchParams({ data: query }).toString(),
     signal: AbortSignal.timeout(90_000),

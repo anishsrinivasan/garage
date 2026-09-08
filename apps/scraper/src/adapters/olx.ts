@@ -5,7 +5,7 @@ import type {
   ScrapeResult,
   ScrapeError,
   NormalizedListing,
-} from "@preowned-cars/shared";
+} from "@classifieds/shared";
 import { OLX_CONFIG } from "./olx-config";
 import { parseIndianPrice } from "../utils/price";
 

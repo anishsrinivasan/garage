@@ -5,10 +5,10 @@ import type {
   ScrapeResult,
   ScrapeError,
   NormalizedListing,
-} from "@preowned-cars/shared";
+} from "@classifieds/shared";
 import { CARDEKHO_CONFIG } from "./cardekho-config";
 import { parseIndianPrice } from "../utils/price";
-import { collectImageUrls, imageUrlsFromSchema } from "@preowned-cars/pipeline";
+import { collectImageUrls, imageUrlsFromSchema } from "@classifieds/pipeline";
 
 type RawCardekhoListing = {
   make: string;

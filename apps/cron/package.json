@@ -1,5 +1,5 @@
 {
-  "name": "@preowned-cars/cron",
+  "name": "@classifieds/cron",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -10,14 +10,14 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@preowned-cars/db": "workspace:*",
-    "@preowned-cars/scraper": "workspace:*",
-    "@preowned-cars/shared": "workspace:*",
+    "@classifieds/db": "workspace:*",
+    "@classifieds/scraper": "workspace:*",
+    "@classifieds/shared": "workspace:*",
     "croner": "^9.0.0",
     "drizzle-orm": "^0.39.0",
     "hono": "^4.6.0",
     "postgres": "^3.4.0",
-    "@preowned-cars/pipeline": "workspace:*"
+    "@classifieds/pipeline": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "^1.2.0",

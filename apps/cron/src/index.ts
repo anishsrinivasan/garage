@@ -1,5 +1,5 @@
 /**
- * Torque scraper cron service.
+ * Classifieds scraper cron service.
  *
  * A Hono app with an embedded scheduler, meant to run as a long-lived container
  * on the homelab under Dokploy. The catalogue previously went fifteen weeks
@@ -20,10 +20,10 @@ import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { Cron } from "croner";
 import { desc, eq, sql } from "drizzle-orm";
-import { db, scrapeRuns, listings, dealerSources, garages } from "@preowned-cars/db";
-import { ALL_SOURCES, type SourceName } from "@preowned-cars/scraper";
-import { getPoolHealth } from "@preowned-cars/pipeline";
-import { savedSearches, alertDeliveries } from "@preowned-cars/db";
+import { db, scrapeRuns, listings, dealerSources, garages } from "@classifieds/db";
+import { ALL_SOURCES, type SourceName } from "@classifieds/scraper";
+import { getPoolHealth } from "@classifieds/pipeline";
+import { savedSearches, alertDeliveries } from "@classifieds/db";
 import { loadConfig } from "./config";
 import {
   enqueue,

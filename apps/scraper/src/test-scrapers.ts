@@ -1,6 +1,6 @@
 import { createCars24Adapter } from "./adapters/cars24";
 import { createCardekhoAdapter } from "./adapters/cardekho";
-import type { NormalizedListing, ScrapeResult } from "@preowned-cars/shared";
+import type { NormalizedListing, ScrapeResult } from "@classifieds/shared";
 
 const REQUIRED_FIELDS: (keyof NormalizedListing)[] = [
   "make", "model", "year", "price", "sourcePlatform", "sourceUrl", "city",

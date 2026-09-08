@@ -15,7 +15,7 @@
  */
 
 import { and, eq } from "drizzle-orm";
-import { db, garages, dealerSources } from "@preowned-cars/db";
+import { db, garages, dealerSources } from "@classifieds/db";
 import { normalizeHandle, slugify } from "./garage-onboarding";
 
 async function upsertBroker(rawHandle: string): Promise<"created" | "updated"> {

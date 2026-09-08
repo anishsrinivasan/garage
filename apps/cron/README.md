@@ -1,4 +1,4 @@
-# Torque scraper cron
+# Classifieds scraper cron
 
 Long-lived Hono service that runs the scrapers on a schedule and exposes their
 health. Built to run on the homelab under Dokploy.

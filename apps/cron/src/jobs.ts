@@ -7,7 +7,7 @@
  * therefore return 202 with a job id rather than blocking the request.
  */
 
-import { runScrape, runMaintenance, ALL_SOURCES, type SourceName } from "@preowned-cars/scraper";
+import { runScrape, runMaintenance, ALL_SOURCES, type SourceName } from "@classifieds/scraper";
 import type { CronConfig } from "./config";
 
 export type JobKind = "scrape" | "maintenance";

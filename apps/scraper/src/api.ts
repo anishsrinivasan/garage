@@ -8,15 +8,15 @@
  */
 
 import { and, eq } from "drizzle-orm";
-import { db, dealerSources, garages } from "@preowned-cars/db";
+import { db, dealerSources, garages } from "@classifieds/db";
 import { createInstagramAdapter } from "./adapters/instagram";
 import { createCars24Adapter } from "./adapters/cars24";
 import { createCardekhoAdapter } from "./adapters/cardekho";
 import { createInstagramRentalsAdapter } from "./adapters/instagram-rentals";
 import { runAdapter, type RunOptions } from "./runner";
-import { delistStale, deliverPendingAlerts } from "@preowned-cars/pipeline";
+import { delistStale, deliverPendingAlerts } from "@classifieds/pipeline";
 import { rebuildDedupeClusters } from "./dedupe-runner";
-import type { ScraperAdapter } from "@preowned-cars/shared";
+import type { ScraperAdapter } from "@classifieds/shared";
 
 export type SourceName = "instagram" | "instagram-rentals" | "cars24" | "cardekho";
 

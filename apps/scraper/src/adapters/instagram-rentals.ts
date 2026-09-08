@@ -3,7 +3,7 @@
  *
  * Deliberately thin. Everything hard — session pooling, challenge detection,
  * scoped media extraction, reel frame cutting, vision scoring, R2 — lives in
- * @preowned-cars/pipeline and is shared with cars unchanged. What is left here
+ * @classifieds/pipeline and is shared with cars unchanged. What is left here
  * is the mapping from an extraction result to a listing, which is the only part
  * that is actually about renting flats.
  *
@@ -11,22 +11,22 @@
  */
 
 import { eq } from "drizzle-orm";
-import { db, cities } from "@preowned-cars/db";
+import { db, cities } from "@classifieds/db";
 import type {
   NormalizedListing,
   ScrapeError,
   ScrapeResult,
   ScraperAdapter,
   ScraperConfig,
-} from "@preowned-cars/shared";
-import { extractPostsBatch } from "@preowned-cars/verticals";
-import { scoreAndOrderMedia } from "@preowned-cars/pipeline";
+} from "@classifieds/shared";
+import { extractPostsBatch } from "@classifieds/verticals";
+import { scoreAndOrderMedia } from "@classifieds/pipeline";
 import {
   rentalsVertical,
   resolveLocality,
   type RentalAttrs,
   type RentalExtraction,
-} from "@preowned-cars/verticals/rentals";
+} from "@classifieds/verticals/rentals";
 import { INSTAGRAM_CONFIG } from "./instagram-config";
 import { collectPosts, type BrokerInfo, type CollectedPost } from "./instagram-collect";
 

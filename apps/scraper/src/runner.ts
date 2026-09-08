@@ -1,10 +1,10 @@
 import { and, eq, sql } from "drizzle-orm";
-import { db } from "@preowned-cars/db";
-import { listings, dealerSources, scrapeRuns } from "@preowned-cars/db";
-import type { ScraperAdapter, NormalizedListing } from "@preowned-cars/shared";
-import { assessPrice } from "@preowned-cars/shared";
-import { normalizeListingFields } from "@preowned-cars/verticals/cars";
-import { getVertical } from "@preowned-cars/verticals";
+import { db } from "@classifieds/db";
+import { listings, dealerSources, scrapeRuns } from "@classifieds/db";
+import type { ScraperAdapter, NormalizedListing } from "@classifieds/shared";
+import { assessPrice } from "@classifieds/shared";
+import { normalizeListingFields } from "@classifieds/verticals/cars";
+import { getVertical } from "@classifieds/verticals";
 import { createHash } from "crypto";
 import { validateListing } from "./utils/validation";
 import {
@@ -12,9 +12,9 @@ import {
   reactivate,
   evaluateAlerts,
   loadNewListings,
-} from "@preowned-cars/pipeline";
+} from "@classifieds/pipeline";
 import { rebuildClustersFor } from "./dedupe-runner";
-import { findAggregatorSourceId, recordSourceRun } from "@preowned-cars/pipeline";
+import { findAggregatorSourceId, recordSourceRun } from "@classifieds/pipeline";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 5000;

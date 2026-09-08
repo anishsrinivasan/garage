@@ -15,14 +15,14 @@
  */
 
 import { eq, inArray, sql } from "drizzle-orm";
-import { db, listings } from "@preowned-cars/db";
+import { db, listings } from "@classifieds/db";
 import {
   clusterListings,
   inBatches,
   DEFAULT_CHUNK_ROWS,
   type DedupeResult,
-} from "@preowned-cars/pipeline";
-import { carsVertical, type CarAttrs } from "@preowned-cars/verticals/cars";
+} from "@classifieds/pipeline";
+import { carsVertical, type CarAttrs } from "@classifieds/verticals/cars";
 
 export type DedupeRunResult = Omit<DedupeResult, "updates"> & {
   written: number;

@@ -1,7 +1,7 @@
-# Torque scraper cron service.
+# Classifieds scraper cron service.
 #
 # Built from the repository root so the Bun workspace can resolve
-# @preowned-cars/{db,shared,scraper}. In Dokploy set the build context to the
+# @classifieds/{db,shared,scraper}. In Dokploy set the build context to the
 # repo root and the Dockerfile path to apps/cron/Dockerfile.
 #
 # Playwright and ffmpeg are both required: the Instagram adapter drives a
@@ -27,11 +27,20 @@ WORKDIR /app
 
 # Manifests first so a source-only change doesn't re-resolve the dependency
 # graph on every build.
+#
+# Every workspace manifest that anything here depends on must be present before
+# `bun install`, or the `workspace:*` links cannot resolve. apps/scraper and
+# apps/cron both depend on @classifieds/pipeline and @classifieds/verticals,
+# which were split out of the scraper later — leaving their manifests out failed
+# the install outright, and pipeline is where the AI SDK, the S3 client and
+# Playwright are declared.
 COPY package.json bun.lock* ./
-COPY apps/cron/package.json         ./apps/cron/package.json
-COPY apps/scraper/package.json      ./apps/scraper/package.json
-COPY packages/db/package.json       ./packages/db/package.json
-COPY packages/shared/package.json   ./packages/shared/package.json
+COPY apps/cron/package.json          ./apps/cron/package.json
+COPY apps/scraper/package.json       ./apps/scraper/package.json
+COPY packages/db/package.json        ./packages/db/package.json
+COPY packages/shared/package.json    ./packages/shared/package.json
+COPY packages/pipeline/package.json  ./packages/pipeline/package.json
+COPY packages/verticals/package.json ./packages/verticals/package.json
 
 RUN bun install --frozen-lockfile || bun install
 

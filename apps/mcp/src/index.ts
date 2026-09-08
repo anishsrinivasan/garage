@@ -26,8 +26,8 @@ import {
   localities,
   cities,
   garages,
-} from "@preowned-cars/db";
-import { relativeAge, STALE_AFTER_DAYS } from "@preowned-cars/shared";
+} from "@classifieds/db";
+import { relativeAge, STALE_AFTER_DAYS } from "@classifieds/shared";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://localhost:3000";
 

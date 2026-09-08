@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { db, dealerSources, garages } from "@preowned-cars/db";
+import { db, dealerSources, garages } from "@classifieds/db";
 
 type Seed = {
   handle: string;
