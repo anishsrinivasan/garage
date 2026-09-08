@@ -9,6 +9,7 @@ import {
   listingReports,
   feedback,
   llmUsageLogs,
+  listingRentalAttrs,
 } from "@classifieds/db";
 import { and, asc, count, desc, eq, ilike, isNotNull, isNull, or, sql, type SQL } from "drizzle-orm";
 import { STALE_AFTER_DAYS } from "@classifieds/shared";
@@ -96,6 +97,13 @@ export async function getIntakeTrend() {
 }
 
 export type AdminListingFilters = {
+  /**
+   * Which vertical to show. The dashboard listed both at once, which read badly
+   * — a flat rendered under a "Car" heading as "2026 3 BHK In Gopalapuram
+   * Gopalapuram", because the core row reuses the car columns and the page
+   * concatenated year + make + model.
+   */
+  vertical?: "cars" | "rentals";
   search?: string;
   status?: "active" | "delisted" | "sold" | "review" | "duplicate" | "no-media";
   source?: string;
@@ -107,6 +115,8 @@ export type AdminListingFilters = {
 export async function getAdminListings(filters: AdminListingFilters) {
   const conditions: SQL[] = [];
 
+  if (filters.vertical) conditions.push(eq(listings.vertical, filters.vertical));
+
   if (filters.search) {
     const term = `%${filters.search}%`;
     conditions.push(
@@ -114,6 +124,7 @@ export async function getAdminListings(filters: AdminListingFilters) {
         ilike(listings.make, term),
         ilike(listings.model, term),
         ilike(listings.variant, term),
+        ilike(listings.location, term),
         ilike(listings.sourceUrl, term),
       )!,
     );
@@ -153,11 +164,17 @@ export async function getAdminListings(filters: AdminListingFilters) {
     db
       .select({
         id: listings.id,
+        vertical: listings.vertical,
         make: listings.make,
         model: listings.model,
         variant: listings.variant,
         year: listings.year,
         price: listings.price,
+        location: listings.location,
+        bhk: listingRentalAttrs.bhk,
+        rent: listingRentalAttrs.rent,
+        furnishing: listingRentalAttrs.furnishing,
+        carpetAreaSqft: listingRentalAttrs.carpetAreaSqft,
         kmDriven: listings.kmDriven,
         fuelType: listings.fuelType,
         transmission: listings.transmission,
@@ -179,6 +196,9 @@ export async function getAdminListings(filters: AdminListingFilters) {
       })
       .from(listings)
       .leftJoin(garages, eq(garages.id, listings.garageId))
+      // left, not inner: a rental whose attrs row is missing must still be
+      // visible here — that is exactly the kind of gap this screen exists to show.
+      .leftJoin(listingRentalAttrs, eq(listingRentalAttrs.listingId, listings.id))
       .where(where)
       .orderBy(desc(listings.firstSeenAt))
       .limit(pageSize)
@@ -195,13 +215,23 @@ export async function getAdminListing(id: string) {
     .select({
       listing: listings,
       garageName: garages.name,
+      // Nullable: a rental whose attrs row never landed still has to open here.
+      rentalAttrs: listingRentalAttrs,
     })
     .from(listings)
     .leftJoin(garages, eq(garages.id, listings.garageId))
+    .leftJoin(listingRentalAttrs, eq(listingRentalAttrs.listingId, listings.id))
     .where(eq(listings.id, id))
     .limit(1);
   if (!row) return null;
-  return { ...row.listing, garageName: row.garageName };
+  return {
+    ...row.listing,
+    garageName: row.garageName,
+    bhk: row.rentalAttrs?.bhk ?? null,
+    rent: row.rentalAttrs?.rent ?? null,
+    furnishing: row.rentalAttrs?.furnishing ?? null,
+    carpetAreaSqft: row.rentalAttrs?.carpetAreaSqft ?? null,
+  };
 }
 
 /** Listings the price checker flagged, worst first. */
@@ -209,9 +239,12 @@ export async function getReviewQueue() {
   return db
     .select({
       id: listings.id,
+      vertical: listings.vertical,
       make: listings.make,
       model: listings.model,
       year: listings.year,
+      location: listings.location,
+      bhk: listingRentalAttrs.bhk,
       price: listings.price,
       reviewReason: listings.reviewReason,
       sourceUrl: listings.sourceUrl,
@@ -222,6 +255,7 @@ export async function getReviewQueue() {
     })
     .from(listings)
     .leftJoin(garages, eq(garages.id, listings.garageId))
+    .leftJoin(listingRentalAttrs, eq(listingRentalAttrs.listingId, listings.id))
     .where(and(eq(listings.needsReview, true), eq(listings.isActive, true)))
     .orderBy(desc(listings.price))
     .limit(100);

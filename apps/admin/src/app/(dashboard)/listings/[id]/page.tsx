@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { listingTitle } from "@/lib/listing-label";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { getAdminListing } from "@/lib/admin-queries";
@@ -33,7 +34,7 @@ export default async function AdminListingPage({
       </Link>
 
       <PageHeader
-        title={`${listing.year} ${listing.make} ${listing.model}`}
+        title={listingTitle(listing)}
         description={listing.variant ?? undefined}
         action={
           <div className="flex flex-wrap items-center gap-2">

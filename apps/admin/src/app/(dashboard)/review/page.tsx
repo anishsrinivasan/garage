@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { listingTitle } from "@/lib/listing-label";
 import { getReviewQueue } from "@/lib/admin-queries";
 import { PageHeader, EmptyState } from "@/components/ui";
 import { ReviewActions } from "@/components/review-actions";
@@ -40,7 +41,7 @@ export default async function ReviewPage() {
                       href={`/listings/${row.id}`}
                       className="font-display text-sm font-bold text-ink-100 hover:text-accent"
                     >
-                      {row.year} {row.make} {row.model}
+                      {listingTitle(row)}
                     </Link>
                     <p className="mt-0.5 text-xs text-ink-500">
                       {row.garageName ?? "—"}
