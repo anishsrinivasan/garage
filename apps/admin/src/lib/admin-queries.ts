@@ -1,6 +1,8 @@
 import {
   db,
   listings,
+  cities,
+  localities,
   garages,
   dealerSources,
   scrapeRuns,
@@ -8,7 +10,7 @@ import {
   feedback,
   llmUsageLogs,
 } from "@preowned-cars/db";
-import { and, asc, count, desc, eq, ilike, isNotNull, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, isNotNull, isNull, or, sql, type SQL } from "drizzle-orm";
 import { STALE_AFTER_DAYS } from "@preowned-cars/shared";
 
 /**
@@ -387,4 +389,118 @@ export async function getDataQualityOutliers() {
       total: number;
     }>,
   };
+}
+
+
+export type CityRow = {
+  id: string;
+  slug: string;
+  name: string;
+  state: string | null;
+  country: string;
+  latitude: number | null;
+  longitude: number | null;
+  isActive: boolean;
+  localityCount: number;
+  listingCount: number;
+};
+
+/**
+ * Cities with how much they actually carry, so dead entries are obvious.
+ *
+ * Joined rather than written as correlated subqueries. Drizzle renders a column
+ * reference inside a raw `sql` fragment unqualified — `${cities.id}` becomes
+ * `"id"` — so inside a subquery it binds to that subquery's own `id` instead of
+ * the outer row. The result compiles, runs, and silently returns zero for every
+ * city. `count(distinct)` handles the fan-out from joining two child tables.
+ */
+export async function getCitiesWithCounts(): Promise<CityRow[]> {
+  return db
+    .select({
+      id: cities.id,
+      slug: cities.slug,
+      name: cities.name,
+      state: cities.state,
+      country: cities.country,
+      latitude: cities.latitude,
+      longitude: cities.longitude,
+      isActive: cities.isActive,
+      localityCount: sql<number>`count(distinct ${localities.id})::int`,
+      listingCount: sql<number>`count(distinct ${listings.id}) filter (where ${listings.isActive})::int`,
+    })
+    .from(cities)
+    .leftJoin(localities, eq(localities.cityId, cities.id))
+    .leftJoin(listings, eq(listings.cityId, cities.id))
+    .groupBy(cities.id)
+    .orderBy(desc(sql`count(distinct ${listings.id})`), asc(cities.name));
+}
+
+export type LocalityRow = {
+  id: string;
+  cityId: string;
+  slug: string;
+  name: string;
+  aliases: string[];
+  latitude: number | null;
+  longitude: number | null;
+  isActive: boolean;
+  listingCount: number;
+};
+
+export async function getLocalities(cityId: string, search?: string): Promise<LocalityRow[]> {
+  const conditions = [eq(localities.cityId, cityId)];
+  if (search?.trim()) {
+    const term = `%${search.trim().toLowerCase()}%`;
+    // Search names *and* aliases — finding the entry that owns a mis-spelling is
+    // the whole reason someone opens this screen.
+    conditions.push(
+      sql`(lower(${localities.name}) like ${term} or exists (
+        select 1 from unnest(${localities.aliases}) a where a like ${term}
+      ))`,
+    );
+  }
+  return db
+    .select({
+      id: localities.id,
+      cityId: localities.cityId,
+      slug: localities.slug,
+      name: localities.name,
+      aliases: localities.aliases,
+      latitude: localities.latitude,
+      longitude: localities.longitude,
+      isActive: localities.isActive,
+      // Joined for the same reason as above — a correlated subquery here bound
+      // to the wrong `id` and reported zero for every locality.
+      listingCount: sql<number>`count(${listings.id}) filter (where ${listings.isActive})::int`,
+    })
+    .from(localities)
+    .leftJoin(listings, eq(listings.localityId, localities.id))
+    .where(and(...conditions))
+    .groupBy(localities.id)
+    .orderBy(desc(sql`count(${listings.id})`), asc(localities.name));
+}
+
+/**
+ * Location strings on listings that matched no locality. This is the work queue
+ * — each one is either a missing alias or a missing locality.
+ */
+export async function getUnmatchedLocations(cityId: string, limit = 40) {
+  const rows = await db
+    .select({
+      locationText: listings.location,
+      count: count(),
+    })
+    .from(listings)
+    .where(
+      and(
+        eq(listings.cityId, cityId),
+        eq(listings.isActive, true),
+        isNull(listings.localityId),
+        sql`${listings.location} is not null and ${listings.location} <> ''`,
+      ),
+    )
+    .groupBy(listings.location)
+    .orderBy(desc(count()))
+    .limit(limit);
+  return rows.filter((r): r is { locationText: string; count: number } => Boolean(r.locationText));
 }

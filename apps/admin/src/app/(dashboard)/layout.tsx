@@ -7,6 +7,7 @@ import {
   Radio,
   AlertTriangle,
   Inbox,
+  MapPin,
 } from "lucide-react";
 import { requireSession } from "@/lib/session";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -17,6 +18,7 @@ const NAV = [
   { href: "/listings", label: "Listings", icon: ListFilter },
   { href: "/review", label: "Review queue", icon: AlertTriangle, badge: "review" },
   { href: "/garages", label: "Garages", icon: Store },
+  { href: "/geography", label: "Geography", icon: MapPin },
   { href: "/sources", label: "Sources & runs", icon: Radio },
   { href: "/inbox", label: "Inbox", icon: Inbox, badge: "reports" },
 ] as const;
