@@ -1,8 +1,47 @@
 # Build plan — one brand, many verticals
 
-**Status:** approved direction, ready to execute.
+**Status:** phases 0a, 0b, 1, 2, 3, 4, 5 and 6 implemented and verified.
+Outstanding: the D1 port (0b's second half) and real Chennai broker handles.
 **Supersedes the options analysis in** `plans/prd-marketplace.md`.
 **Date:** 2026-09-08
+
+---
+
+## Delivery log
+
+| Phase | State | Evidence |
+|---|---|---|
+| **0a — Split the schema** | ✅ done | Cars rendered byte-identically across 8 page states and every facet count, before and after |
+| **0b — Move the engine** | ◐ partial | OpenRouter routing done and verified; incremental dedupe, batched writes and paise-safe money done. **D1 port outstanding** — needs Cloudflare credentials |
+| **1 — Harden ingestion** | ✅ done | Session pool and challenge detection; six behaviours verified against the live database |
+| **2 — Geography** | ✅ done | 299 localities, 674 aliases, plus the admin master-data screen |
+| **3 — Rentals ingestion** | ✅ done | Vertical, money reconciler (6/6), locality resolver (12/12), shared collector. **No real broker handles yet** |
+| **4 — Rentals surface** | ✅ done | `/rent` with filters, detail page, JSON-LD |
+| **5 — Alerts** | ✅ done | Queue, de-duplication, digest delivery over email and Telegram |
+| **6 — MCP** | ✅ done | Four tools over stdio, verified against the live index |
+
+### Bugs found by verifying rather than assuming
+
+| Bug | Consequence had it shipped |
+|---|---|
+| Sorts had no unique tiebreaker | OFFSET pagination could show one listing twice and skip another |
+| Drizzle renders `${table.col}` unqualified inside raw SQL | Correlated subqueries bound to the wrong `id` and silently returned zero |
+| Marketplace adapters wrote legacy columns, not attrs | 19 listings had a core row and no attributes |
+| Model was handed a just-uploaded R2 URL | Extraction raced CDN propagation and timed out |
+| Rent bucketing in the cluster key | 28k and 29k straddled a boundary; rent removed from the key entirely |
+| Sitemap was fully static | A build without database access shipped three URLs, permanently and silently |
+
+### Known gaps
+
+- **No real Chennai broker handles.** The pipeline is proven end to end, but the
+  starter list shipped in the first draft was guessed and four of five accounts
+  did not exist. They are deactivated and the seeder now demands explicit,
+  verified handles.
+- **The D1 port.** Everything it depends on — batched writes, incremental
+  dedupe, integer money — is done. The port itself needs Cloudflare credentials.
+- **Cross-broker rental dedupe** needs perceptual hashing; a grouping key cannot
+  do it.
+- **A map view** for `/rent`. Localities carry coordinates already.
 
 ---
 
