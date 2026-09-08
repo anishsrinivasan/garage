@@ -333,7 +333,17 @@ export function createOlxAdapter(): ScraperAdapter {
                 errors.push({ url: card.url, message, retryable: true });
               }
 
-              const year = detailData.year ?? titleYear ?? null;
+              // The card carries "2024 - 24,000 km"; the detail page's own
+              // labels moved with the same redesign that broke the card
+              // selectors, so this is the reliable source. Without it every
+              // listing was rejected for a missing year — 119 of 119 on the
+              // first working run, which is how the redesign showed up.
+              const yearFromMeta = card.meta.match(/\b((?:19|20)\d{2})\b/);
+              const year =
+                detailData.year ??
+                (yearFromMeta ? parseInt(yearFromMeta[1]!, 10) : undefined) ??
+                titleYear ??
+                null;
               const photos =
                 detailData.photos.length > 0
                   ? detailData.photos
