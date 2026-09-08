@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@preowned-cars/db";
-import { carListings, dealerSources, scrapeRuns } from "@preowned-cars/db";
+import { listings, dealerSources, scrapeRuns } from "@preowned-cars/db";
 import type { ScraperAdapter, NormalizedListing } from "@preowned-cars/shared";
 import { assessPrice } from "@preowned-cars/shared";
 import { normalizeListingFields } from "@preowned-cars/verticals/cars";
@@ -59,13 +59,13 @@ function computeContentHash(listing: NormalizedListing): string {
   return createHash("sha256").update(key).digest("hex");
 }
 
-async function upsertListings(listings: NormalizedListing[]): Promise<{ newCount: number; updatedCount: number }> {
+async function upsertListings(incoming: NormalizedListing[]): Promise<{ newCount: number; updatedCount: number }> {
   let newCount = 0;
   let updatedCount = 0;
 
   const now = new Date();
 
-  for (const raw of listings) {
+  for (const raw of incoming) {
     // Canonicalise on the way in so the filter sidebar never grows a second
     // "Diesel" pill again, whichever adapter produced the row.
     const normalized = normalizeListingFields(raw);
@@ -107,7 +107,7 @@ async function upsertListings(listings: NormalizedListing[]): Promise<{ newCount
     }
 
     const result = await db
-      .insert(carListings)
+      .insert(listings)
       .values({
         make: listing.make,
         model: listing.model,
@@ -145,7 +145,7 @@ async function upsertListings(listings: NormalizedListing[]): Promise<{ newCount
         reviewReason: reviewReasons.join("; ") || null,
       })
       .onConflictDoUpdate({
-        target: [carListings.sourcePlatform, carListings.sourceUrl],
+        target: [listings.sourcePlatform, listings.sourceUrl],
         set: {
           price: priceValue,
           listingStatus,
@@ -170,8 +170,8 @@ async function upsertListings(listings: NormalizedListing[]): Promise<{ newCount
         },
       })
       .returning({
-        id: carListings.id,
-        firstSeenAt: carListings.firstSeenAt,
+        id: listings.id,
+        firstSeenAt: listings.firstSeenAt,
       });
 
     if (result.length > 0) {

@@ -1,4 +1,4 @@
-import { db, garages, carListings, dealerSources } from "@preowned-cars/db";
+import { db, garages, listings, dealerSources } from "@preowned-cars/db";
 import { and, asc, count, desc, eq, sql } from "drizzle-orm";
 
 export type GarageKind = "dealer" | "marketplace";
@@ -34,20 +34,20 @@ export async function getGarages(options?: {
       websiteUrl: garages.websiteUrl,
       instagramUrl: garages.instagramUrl,
       logoUrl: garages.logoUrl,
-      listingCount: count(carListings.id),
+      listingCount: count(listings.id),
     })
     .from(garages)
     .leftJoin(
-      carListings,
+      listings,
       and(
-        eq(carListings.garageId, garages.id),
-        eq(carListings.isActive, true),
-        eq(carListings.isClusterHead, true),
+        eq(listings.garageId, garages.id),
+        eq(listings.isActive, true),
+        eq(listings.isClusterHead, true),
       ),
     )
     .where(and(...conditions))
     .groupBy(garages.id)
-    .orderBy(desc(count(carListings.id)), asc(garages.name));
+    .orderBy(desc(count(listings.id)), asc(garages.name));
 }
 
 export async function getGarageBySlug(slug: string) {
@@ -80,37 +80,37 @@ export async function getGarageSources(garageId: string) {
 export async function getListingsForGarage(garageId: string, limit = 48) {
   return db
     .select({
-      id: carListings.id,
-      make: carListings.make,
-      model: carListings.model,
-      variant: carListings.variant,
-      year: carListings.year,
-      price: carListings.price,
-      listingStatus: carListings.listingStatus,
-      saleStatus: carListings.saleStatus,
-      kmDriven: carListings.kmDriven,
-      fuelType: carListings.fuelType,
-      transmission: carListings.transmission,
-      city: carListings.city,
-      sourcePlatform: carListings.sourcePlatform,
-      media: carListings.media,
-      heroMediaUrl: carListings.heroMediaUrl,
-      listedAt: carListings.listedAt,
-      firstSeenAt: carListings.firstSeenAt,
+      id: listings.id,
+      make: listings.make,
+      model: listings.model,
+      variant: listings.variant,
+      year: listings.year,
+      price: listings.price,
+      listingStatus: listings.listingStatus,
+      saleStatus: listings.saleStatus,
+      kmDriven: listings.kmDriven,
+      fuelType: listings.fuelType,
+      transmission: listings.transmission,
+      city: listings.city,
+      sourcePlatform: listings.sourcePlatform,
+      media: listings.media,
+      heroMediaUrl: listings.heroMediaUrl,
+      listedAt: listings.listedAt,
+      firstSeenAt: listings.firstSeenAt,
       garageName: garages.name,
       garageSlug: garages.slug,
     })
-    .from(carListings)
-    .innerJoin(garages, eq(garages.id, carListings.garageId))
+    .from(listings)
+    .innerJoin(garages, eq(garages.id, listings.garageId))
     .where(
       and(
-        eq(carListings.isActive, true),
-        eq(carListings.isClusterHead, true),
-        eq(carListings.garageId, garageId),
+        eq(listings.isActive, true),
+        eq(listings.isClusterHead, true),
+        eq(listings.garageId, garageId),
       ),
     )
     .orderBy(
-      desc(sql`coalesce(${carListings.listedAt}, ${carListings.firstSeenAt})`),
+      desc(sql`coalesce(${listings.listedAt}, ${listings.firstSeenAt})`),
     )
     .limit(limit);
 }

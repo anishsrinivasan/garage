@@ -1,4 +1,4 @@
-import { db, carListings } from "@preowned-cars/db";
+import { db, listings } from "@preowned-cars/db";
 import {
   RANKING_WEIGHTS,
   FRESHNESS_HALF_LIFE_DAYS,
@@ -125,7 +125,7 @@ export const carsVertical: Vertical<CarAttrs> = {
    */
   async persistAttrs(listingId, attrs) {
     await db
-      .update(carListings)
+      .update(listings)
       .set({
         make: attrs.make,
         model: attrs.model,
@@ -138,27 +138,27 @@ export const carsVertical: Vertical<CarAttrs> = {
         color: attrs.color,
         bodyType: attrs.bodyType,
       })
-      .where(eq(carListings.id, listingId));
+      .where(eq(listings.id, listingId));
   },
 
   async loadAttrs(listingIds) {
     if (listingIds.length === 0) return new Map();
     const rows = await db
       .select({
-        id: carListings.id,
-        make: carListings.make,
-        model: carListings.model,
-        variant: carListings.variant,
-        year: carListings.year,
-        kmDriven: carListings.kmDriven,
-        fuelType: carListings.fuelType,
-        transmission: carListings.transmission,
-        ownerCount: carListings.ownerCount,
-        color: carListings.color,
-        bodyType: carListings.bodyType,
+        id: listings.id,
+        make: listings.make,
+        model: listings.model,
+        variant: listings.variant,
+        year: listings.year,
+        kmDriven: listings.kmDriven,
+        fuelType: listings.fuelType,
+        transmission: listings.transmission,
+        ownerCount: listings.ownerCount,
+        color: listings.color,
+        bodyType: listings.bodyType,
       })
-      .from(carListings)
-      .where(inArray(carListings.id, listingIds));
+      .from(listings)
+      .where(inArray(listings.id, listingIds));
     return new Map(rows.map(({ id, ...attrs }) => [id, attrs as CarAttrs]));
   },
 

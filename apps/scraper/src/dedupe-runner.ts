@@ -8,7 +8,7 @@
  */
 
 import { eq } from "drizzle-orm";
-import { db, carListings } from "@preowned-cars/db";
+import { db, listings } from "@preowned-cars/db";
 import { clusterListings, type DedupeResult } from "@preowned-cars/pipeline";
 import { carsVertical, type CarAttrs } from "@preowned-cars/verticals/cars";
 
@@ -17,22 +17,22 @@ export async function rebuildDedupeClusters(): Promise<
 > {
   const rows = await db
     .select({
-      id: carListings.id,
-      orgId: carListings.garageId,
-      listedAt: carListings.listedAt,
-      firstSeenAt: carListings.firstSeenAt,
-      media: carListings.media,
-      price: carListings.price,
-      saleStatus: carListings.saleStatus,
-      dedupClusterId: carListings.dedupClusterId,
-      isClusterHead: carListings.isClusterHead,
-      make: carListings.make,
-      model: carListings.model,
-      year: carListings.year,
-      kmDriven: carListings.kmDriven,
+      id: listings.id,
+      orgId: listings.garageId,
+      listedAt: listings.listedAt,
+      firstSeenAt: listings.firstSeenAt,
+      media: listings.media,
+      price: listings.price,
+      saleStatus: listings.saleStatus,
+      dedupClusterId: listings.dedupClusterId,
+      isClusterHead: listings.isClusterHead,
+      make: listings.make,
+      model: listings.model,
+      year: listings.year,
+      kmDriven: listings.kmDriven,
     })
-    .from(carListings)
-    .where(eq(carListings.isActive, true));
+    .from(listings)
+    .where(eq(listings.isActive, true));
 
   const result = clusterListings(rows, (row) =>
     carsVertical.clusterKey({
@@ -50,9 +50,9 @@ export async function rebuildDedupeClusters(): Promise<
 
   for (const update of result.updates) {
     await db
-      .update(carListings)
+      .update(listings)
       .set({ dedupClusterId: update.clusterId, isClusterHead: update.isHead })
-      .where(eq(carListings.id, update.id));
+      .where(eq(listings.id, update.id));
   }
 
   console.log(

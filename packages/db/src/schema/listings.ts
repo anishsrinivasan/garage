@@ -1,3 +1,9 @@
+/**
+ * The core listing row, shared by every vertical.
+ *
+ * Domain-specific attributes live in listing_<vertical>_attrs and are reached
+ * only through that vertical's loadAttrs/persistAttrs.
+ */
 import {
   uuid,
   text,
@@ -11,10 +17,18 @@ import {
 } from "drizzle-orm/pg-core";
 import { torqueSchema } from "./_schema";
 
-export const carListings = torqueSchema.table(
-  "car_listings",
+export const listings = torqueSchema.table(
+  "listings",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    /** Which vertical this row belongs to: cars, rentals, resale. */
+    vertical: text("vertical").notNull().default("cars"),
+    cityId: uuid("city_id"),
+    localityId: uuid("locality_id"),
+    /** Cars are sold once; rent recurs. Both the ranking and the UI need this. */
+    pricePeriod: text("price_period").notNull().default("once"),
+    // --- car columns, retained for one release; listing_car_attrs is the
+    // --- source of truth and a later migration drops these.
     make: text("make").notNull(),
     model: text("model").notNull(),
     variant: text("variant"),
@@ -90,6 +104,14 @@ export const carListings = torqueSchema.table(
     idxGarageId: index("idx_car_listings_garage_id").on(table.garageId),
     idxListingStatus: index("idx_car_listings_status").on(table.listingStatus),
     idxSaleStatus: index("idx_car_listings_sale_status").on(table.saleStatus),
+    idxVertical: index("idx_listings_vertical").on(table.vertical),
+    idxCityId: index("idx_listings_city_id").on(table.cityId),
+    idxLocalityId: index("idx_listings_locality_id").on(table.localityId),
+    idxVerticalFeed: index("idx_listings_vertical_feed").on(
+      table.vertical,
+      table.isActive,
+      table.isClusterHead,
+    ),
     idxLastSeenAt: index("idx_car_listings_last_seen_at").on(table.lastSeenAt),
     idxFirstSeenAt: index("idx_car_listings_first_seen_at").on(table.firstSeenAt),
     idxListedAt: index("idx_car_listings_listed_at").on(table.listedAt),

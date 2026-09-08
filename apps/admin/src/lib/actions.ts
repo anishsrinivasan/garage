@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { eq, inArray } from "drizzle-orm";
 import {
   db,
-  carListings,
+  listings,
   garages,
   dealerSources,
   listingReports,
@@ -69,8 +69,8 @@ export async function updateListing(
   try {
     const current = await db
       .select()
-      .from(carListings)
-      .where(eq(carListings.id, id))
+      .from(listings)
+      .where(eq(listings.id, id))
       .limit(1);
     const existing = current[0];
     if (!existing) return { ok: false, error: "Listing not found" };
@@ -107,7 +107,7 @@ export async function updateListing(
     });
 
     await db
-      .update(carListings)
+      .update(listings)
       .set({
         make: normalized.make,
         model: normalized.model,
@@ -133,7 +133,7 @@ export async function updateListing(
           : existing.reviewReason,
         updatedAt: new Date(),
       })
-      .where(eq(carListings.id, id));
+      .where(eq(listings.id, id));
 
     revalidatePath("/listings");
     revalidatePath("/review");
@@ -152,9 +152,9 @@ export async function setHeroMedia(
   await requireSession();
   try {
     await db
-      .update(carListings)
+      .update(listings)
       .set({ heroMediaUrl: url, updatedAt: new Date() })
-      .where(eq(carListings.id, id));
+      .where(eq(listings.id, id));
     revalidatePath("/listings");
     await revalidateWeb();
     return { ok: true, message: url ? "Hero image set" : "Hero override cleared" };
@@ -171,13 +171,13 @@ export async function setListingActive(
   if (ids.length === 0) return { ok: false, error: "Nothing selected" };
   try {
     await db
-      .update(carListings)
+      .update(listings)
       .set({
         isActive,
         delistedAt: isActive ? null : new Date(),
         updatedAt: new Date(),
       })
-      .where(inArray(carListings.id, ids));
+      .where(inArray(listings.id, ids));
     revalidatePath("/listings");
     await revalidateWeb();
     return {
@@ -194,9 +194,9 @@ export async function clearReviewFlag(ids: string[]): Promise<ActionResult> {
   if (ids.length === 0) return { ok: false, error: "Nothing selected" };
   try {
     await db
-      .update(carListings)
+      .update(listings)
       .set({ needsReview: false, reviewReason: null, updatedAt: new Date() })
-      .where(inArray(carListings.id, ids));
+      .where(inArray(listings.id, ids));
     revalidatePath("/review");
     await revalidateWeb();
     return { ok: true, message: `${ids.length} listing(s) approved` };

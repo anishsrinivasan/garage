@@ -21,7 +21,7 @@
  */
 
 import { and, desc, eq, inArray, isNull, lt, notInArray, sql } from "drizzle-orm";
-import { db, carListings, scrapeRuns } from "@preowned-cars/db";
+import { db, listings, scrapeRuns } from "@preowned-cars/db";
 import { EXPIRE_AFTER_DAYS, STALE_AFTER_DAYS } from "@preowned-cars/shared";
 
 /**
@@ -46,11 +46,11 @@ export async function delistUnseen(
 ): Promise<DelistResult> {
   const [activeRow] = await db
     .select({ activeCount: sql<number>`count(*)::int` })
-    .from(carListings)
+    .from(listings)
     .where(
       and(
-        eq(carListings.sourcePlatform, sourcePlatform),
-        eq(carListings.isActive, true),
+        eq(listings.sourcePlatform, sourcePlatform),
+        eq(listings.isActive, true),
       ),
     );
   const activeCount = activeRow?.activeCount ?? 0;
@@ -73,16 +73,16 @@ export async function delistUnseen(
   }
 
   const delisted = await db
-    .update(carListings)
+    .update(listings)
     .set({ isActive: false, delistedAt: new Date(), updatedAt: new Date() })
     .where(
       and(
-        eq(carListings.sourcePlatform, sourcePlatform),
-        eq(carListings.isActive, true),
-        notInArray(carListings.sourceUrl, seenSourceUrls),
+        eq(listings.sourcePlatform, sourcePlatform),
+        eq(listings.isActive, true),
+        notInArray(listings.sourceUrl, seenSourceUrls),
       ),
     )
-    .returning({ id: carListings.id });
+    .returning({ id: listings.id });
 
   if (delisted.length > 0) {
     console.log(
@@ -132,12 +132,12 @@ export async function delistStale(
 
   const candidates = await db
     .select({
-      id: carListings.id,
-      sourcePlatform: carListings.sourcePlatform,
-      lastSeenAt: carListings.lastSeenAt,
+      id: listings.id,
+      sourcePlatform: listings.sourcePlatform,
+      lastSeenAt: listings.lastSeenAt,
     })
-    .from(carListings)
-    .where(and(eq(carListings.isActive, true), lt(carListings.lastSeenAt, cutoff)));
+    .from(listings)
+    .where(and(eq(listings.isActive, true), lt(listings.lastSeenAt, cutoff)));
 
   const skippedSources = new Set<string>();
   const toDelist = candidates.filter((row) => {
@@ -160,15 +160,15 @@ export async function delistStale(
   if (toDelist.length === 0) return 0;
 
   const delisted = await db
-    .update(carListings)
+    .update(listings)
     .set({ isActive: false, delistedAt: new Date(), updatedAt: new Date() })
     .where(
       inArray(
-        carListings.id,
+        listings.id,
         toDelist.map((row) => row.id),
       ),
     )
-    .returning({ id: carListings.id });
+    .returning({ id: listings.id });
 
   console.log(
     `[delist] retired ${delisted.length} listing(s) not confirmed in ${staleAfterDays} days`,
@@ -180,15 +180,15 @@ export async function delistStale(
 export async function reactivate(sourceUrls: string[]): Promise<number> {
   if (sourceUrls.length === 0) return 0;
   const rows = await db
-    .update(carListings)
+    .update(listings)
     .set({ isActive: true, delistedAt: null, updatedAt: new Date() })
     .where(
       and(
-        inArray(carListings.sourceUrl, sourceUrls),
-        eq(carListings.isActive, false),
+        inArray(listings.sourceUrl, sourceUrls),
+        eq(listings.isActive, false),
       ),
     )
-    .returning({ id: carListings.id });
+    .returning({ id: listings.id });
   return rows.length;
 }
 
@@ -197,12 +197,12 @@ export async function countExpired(): Promise<number> {
   const cutoff = new Date(Date.now() - EXPIRE_AFTER_DAYS * 86_400_000);
   const [row] = await db
     .select({ total: sql<number>`count(*)::int` })
-    .from(carListings)
+    .from(listings)
     .where(
       and(
-        eq(carListings.isActive, true),
-        lt(carListings.lastSeenAt, cutoff),
-        isNull(carListings.delistedAt),
+        eq(listings.isActive, true),
+        lt(listings.lastSeenAt, cutoff),
+        isNull(listings.delistedAt),
       ),
     );
   return row?.total ?? 0;

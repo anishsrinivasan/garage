@@ -1,6 +1,6 @@
 import {
   db,
-  carListings,
+  listings,
   garages,
   dealerSources,
   scrapeRuns,
@@ -35,18 +35,18 @@ export type DashboardStats = {
 export async function getDashboardStats(): Promise<DashboardStats> {
   const [row] = await db
     .select({
-      active: sql<number>`count(*) filter (where ${carListings.isActive})::int`,
-      delisted: sql<number>`count(*) filter (where not ${carListings.isActive})::int`,
-      sold: sql<number>`count(*) filter (where ${carListings.saleStatus} = 'sold')::int`,
-      needsReview: sql<number>`count(*) filter (where ${carListings.needsReview} and ${carListings.isActive})::int`,
-      stale: sql<number>`count(*) filter (where ${carListings.isActive} and ${carListings.lastSeenAt} < now() - ${`${STALE_AFTER_DAYS} days`}::interval)::int`,
-      addedToday: sql<number>`count(*) filter (where ${carListings.firstSeenAt} >= now() - interval '1 day')::int`,
-      addedThisWeek: sql<number>`count(*) filter (where ${carListings.firstSeenAt} >= now() - interval '7 days')::int`,
-      noMedia: sql<number>`count(*) filter (where ${carListings.isActive} and jsonb_array_length(coalesce(${carListings.media}, '[]'::jsonb)) = 0)::int`,
-      noPrice: sql<number>`count(*) filter (where ${carListings.isActive} and ${carListings.price} is null)::int`,
-      duplicatesCollapsed: sql<number>`count(*) filter (where ${carListings.isActive} and not ${carListings.isClusterHead})::int`,
+      active: sql<number>`count(*) filter (where ${listings.isActive})::int`,
+      delisted: sql<number>`count(*) filter (where not ${listings.isActive})::int`,
+      sold: sql<number>`count(*) filter (where ${listings.saleStatus} = 'sold')::int`,
+      needsReview: sql<number>`count(*) filter (where ${listings.needsReview} and ${listings.isActive})::int`,
+      stale: sql<number>`count(*) filter (where ${listings.isActive} and ${listings.lastSeenAt} < now() - ${`${STALE_AFTER_DAYS} days`}::interval)::int`,
+      addedToday: sql<number>`count(*) filter (where ${listings.firstSeenAt} >= now() - interval '1 day')::int`,
+      addedThisWeek: sql<number>`count(*) filter (where ${listings.firstSeenAt} >= now() - interval '7 days')::int`,
+      noMedia: sql<number>`count(*) filter (where ${listings.isActive} and jsonb_array_length(coalesce(${listings.media}, '[]'::jsonb)) = 0)::int`,
+      noPrice: sql<number>`count(*) filter (where ${listings.isActive} and ${listings.price} is null)::int`,
+      duplicatesCollapsed: sql<number>`count(*) filter (where ${listings.isActive} and not ${listings.isClusterHead})::int`,
     })
-    .from(carListings);
+    .from(listings);
 
   return (
     row ?? {
@@ -67,8 +67,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 export async function getReviewCount(): Promise<number> {
   const [row] = await db
     .select({ total: sql<number>`count(*)::int` })
-    .from(carListings)
-    .where(and(eq(carListings.needsReview, true), eq(carListings.isActive, true)));
+    .from(listings)
+    .where(and(eq(listings.needsReview, true), eq(listings.isActive, true)));
   return row?.total ?? 0;
 }
 
@@ -83,10 +83,10 @@ export async function getOpenReportCount(): Promise<number> {
 /** Listings added per day for the last 30 days, for the dashboard sparkline. */
 export async function getIntakeTrend() {
   const rows = await db.execute<{ day: string; total: number }>(
-    sql`select to_char(date_trunc('day', ${carListings.firstSeenAt}), 'YYYY-MM-DD') as day,
+    sql`select to_char(date_trunc('day', ${listings.firstSeenAt}), 'YYYY-MM-DD') as day,
                count(*)::int as total
-          from ${carListings}
-         where ${carListings.firstSeenAt} >= now() - interval '30 days'
+          from ${listings}
+         where ${listings.firstSeenAt} >= now() - interval '30 days'
          group by 1
          order by 1`,
   );
@@ -109,39 +109,39 @@ export async function getAdminListings(filters: AdminListingFilters) {
     const term = `%${filters.search}%`;
     conditions.push(
       or(
-        ilike(carListings.make, term),
-        ilike(carListings.model, term),
-        ilike(carListings.variant, term),
-        ilike(carListings.sourceUrl, term),
+        ilike(listings.make, term),
+        ilike(listings.model, term),
+        ilike(listings.variant, term),
+        ilike(listings.sourceUrl, term),
       )!,
     );
   }
 
   switch (filters.status) {
     case "active":
-      conditions.push(eq(carListings.isActive, true));
+      conditions.push(eq(listings.isActive, true));
       break;
     case "delisted":
-      conditions.push(eq(carListings.isActive, false));
+      conditions.push(eq(listings.isActive, false));
       break;
     case "sold":
-      conditions.push(eq(carListings.saleStatus, "sold"));
+      conditions.push(eq(listings.saleStatus, "sold"));
       break;
     case "review":
-      conditions.push(eq(carListings.needsReview, true));
+      conditions.push(eq(listings.needsReview, true));
       break;
     case "duplicate":
-      conditions.push(eq(carListings.isClusterHead, false));
+      conditions.push(eq(listings.isClusterHead, false));
       break;
     case "no-media":
       conditions.push(
-        sql`jsonb_array_length(coalesce(${carListings.media}, '[]'::jsonb)) = 0`,
+        sql`jsonb_array_length(coalesce(${listings.media}, '[]'::jsonb)) = 0`,
       );
       break;
   }
 
-  if (filters.source) conditions.push(eq(carListings.sourcePlatform, filters.source));
-  if (filters.garage) conditions.push(eq(carListings.garageId, filters.garage));
+  if (filters.source) conditions.push(eq(listings.sourcePlatform, filters.source));
+  if (filters.garage) conditions.push(eq(listings.garageId, filters.garage));
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
   const page = Math.max(1, filters.page ?? 1);
@@ -150,38 +150,38 @@ export async function getAdminListings(filters: AdminListingFilters) {
   const [rows, [totals]] = await Promise.all([
     db
       .select({
-        id: carListings.id,
-        make: carListings.make,
-        model: carListings.model,
-        variant: carListings.variant,
-        year: carListings.year,
-        price: carListings.price,
-        kmDriven: carListings.kmDriven,
-        fuelType: carListings.fuelType,
-        transmission: carListings.transmission,
-        bodyType: carListings.bodyType,
-        city: carListings.city,
-        saleStatus: carListings.saleStatus,
-        isActive: carListings.isActive,
-        isClusterHead: carListings.isClusterHead,
-        needsReview: carListings.needsReview,
-        reviewReason: carListings.reviewReason,
-        media: carListings.media,
-        heroMediaUrl: carListings.heroMediaUrl,
-        sourcePlatform: carListings.sourcePlatform,
-        sourceUrl: carListings.sourceUrl,
-        listedAt: carListings.listedAt,
-        firstSeenAt: carListings.firstSeenAt,
-        lastSeenAt: carListings.lastSeenAt,
+        id: listings.id,
+        make: listings.make,
+        model: listings.model,
+        variant: listings.variant,
+        year: listings.year,
+        price: listings.price,
+        kmDriven: listings.kmDriven,
+        fuelType: listings.fuelType,
+        transmission: listings.transmission,
+        bodyType: listings.bodyType,
+        city: listings.city,
+        saleStatus: listings.saleStatus,
+        isActive: listings.isActive,
+        isClusterHead: listings.isClusterHead,
+        needsReview: listings.needsReview,
+        reviewReason: listings.reviewReason,
+        media: listings.media,
+        heroMediaUrl: listings.heroMediaUrl,
+        sourcePlatform: listings.sourcePlatform,
+        sourceUrl: listings.sourceUrl,
+        listedAt: listings.listedAt,
+        firstSeenAt: listings.firstSeenAt,
+        lastSeenAt: listings.lastSeenAt,
         garageName: garages.name,
       })
-      .from(carListings)
-      .leftJoin(garages, eq(garages.id, carListings.garageId))
+      .from(listings)
+      .leftJoin(garages, eq(garages.id, listings.garageId))
       .where(where)
-      .orderBy(desc(carListings.firstSeenAt))
+      .orderBy(desc(listings.firstSeenAt))
       .limit(pageSize)
       .offset((page - 1) * pageSize),
-    db.select({ total: count() }).from(carListings).where(where),
+    db.select({ total: count() }).from(listings).where(where),
   ]);
 
   const total = totals?.total ?? 0;
@@ -191,12 +191,12 @@ export async function getAdminListings(filters: AdminListingFilters) {
 export async function getAdminListing(id: string) {
   const [row] = await db
     .select({
-      listing: carListings,
+      listing: listings,
       garageName: garages.name,
     })
-    .from(carListings)
-    .leftJoin(garages, eq(garages.id, carListings.garageId))
-    .where(eq(carListings.id, id))
+    .from(listings)
+    .leftJoin(garages, eq(garages.id, listings.garageId))
+    .where(eq(listings.id, id))
     .limit(1);
   if (!row) return null;
   return { ...row.listing, garageName: row.garageName };
@@ -206,22 +206,22 @@ export async function getAdminListing(id: string) {
 export async function getReviewQueue() {
   return db
     .select({
-      id: carListings.id,
-      make: carListings.make,
-      model: carListings.model,
-      year: carListings.year,
-      price: carListings.price,
-      reviewReason: carListings.reviewReason,
-      sourceUrl: carListings.sourceUrl,
-      description: carListings.description,
-      media: carListings.media,
-      firstSeenAt: carListings.firstSeenAt,
+      id: listings.id,
+      make: listings.make,
+      model: listings.model,
+      year: listings.year,
+      price: listings.price,
+      reviewReason: listings.reviewReason,
+      sourceUrl: listings.sourceUrl,
+      description: listings.description,
+      media: listings.media,
+      firstSeenAt: listings.firstSeenAt,
       garageName: garages.name,
     })
-    .from(carListings)
-    .leftJoin(garages, eq(garages.id, carListings.garageId))
-    .where(and(eq(carListings.needsReview, true), eq(carListings.isActive, true)))
-    .orderBy(desc(carListings.price))
+    .from(listings)
+    .leftJoin(garages, eq(garages.id, listings.garageId))
+    .where(and(eq(listings.needsReview, true), eq(listings.isActive, true)))
+    .orderBy(desc(listings.price))
     .limit(100);
 }
 
@@ -239,15 +239,15 @@ export async function getAdminGarages() {
       websiteUrl: garages.websiteUrl,
       description: garages.description,
       isActive: garages.isActive,
-      listingCount: count(carListings.id),
+      listingCount: count(listings.id),
     })
     .from(garages)
     .leftJoin(
-      carListings,
-      and(eq(carListings.garageId, garages.id), eq(carListings.isActive, true)),
+      listings,
+      and(eq(listings.garageId, garages.id), eq(listings.isActive, true)),
     )
     .groupBy(garages.id)
-    .orderBy(desc(count(carListings.id)), asc(garages.name));
+    .orderBy(desc(count(listings.id)), asc(garages.name));
 }
 
 export async function getAdminSources() {
@@ -264,19 +264,19 @@ export async function getAdminSources() {
       garageId: garages.id,
       garageName: garages.name,
       garageSlug: garages.slug,
-      listingCount: count(carListings.id),
+      listingCount: count(listings.id),
     })
     .from(dealerSources)
     .innerJoin(garages, eq(garages.id, dealerSources.garageId))
     .leftJoin(
-      carListings,
+      listings,
       and(
-        eq(carListings.dealerSourceId, dealerSources.id),
-        eq(carListings.isActive, true),
+        eq(listings.dealerSourceId, dealerSources.id),
+        eq(listings.isActive, true),
       ),
     )
     .groupBy(dealerSources.id, garages.id)
-    .orderBy(desc(count(carListings.id)));
+    .orderBy(desc(count(listings.id)));
 }
 
 export async function getRecentRuns(limit = 25) {
@@ -296,12 +296,12 @@ export async function getReports() {
       description: listingReports.description,
       status: listingReports.status,
       createdAt: listingReports.createdAt,
-      make: carListings.make,
-      model: carListings.model,
-      year: carListings.year,
+      make: listings.make,
+      model: listings.model,
+      year: listings.year,
     })
     .from(listingReports)
-    .leftJoin(carListings, eq(carListings.id, listingReports.listingId))
+    .leftJoin(listings, eq(listings.id, listingReports.listingId))
     .orderBy(desc(listingReports.createdAt))
     .limit(100);
 }
@@ -340,39 +340,39 @@ export async function getLlmUsage() {
 export async function getDataQualityOutliers() {
   const [fuels, transmissions, bodies, makes] = await Promise.all([
     db.execute(
-      sql`select ${carListings.fuelType} as value, count(*)::int as total
-            from ${carListings}
-           where ${carListings.isActive}
-             and ${carListings.fuelType} is not null
-             and ${carListings.fuelType} not in ('petrol','diesel','cng','electric','hybrid','lpg')
+      sql`select ${listings.fuelType} as value, count(*)::int as total
+            from ${listings}
+           where ${listings.isActive}
+             and ${listings.fuelType} is not null
+             and ${listings.fuelType} not in ('petrol','diesel','cng','electric','hybrid','lpg')
            group by 1 order by 2 desc`,
     ),
     db.execute(
-      sql`select ${carListings.transmission} as value, count(*)::int as total
-            from ${carListings}
-           where ${carListings.isActive}
-             and ${carListings.transmission} is not null
-             and ${carListings.transmission} not in ('manual','automatic')
+      sql`select ${listings.transmission} as value, count(*)::int as total
+            from ${listings}
+           where ${listings.isActive}
+             and ${listings.transmission} is not null
+             and ${listings.transmission} not in ('manual','automatic')
            group by 1 order by 2 desc`,
     ),
     db.execute(
-      sql`select ${carListings.bodyType} as value, count(*)::int as total
-            from ${carListings}
-           where ${carListings.isActive}
-             and ${carListings.bodyType} is not null
-             and ${carListings.bodyType} not in ('hatchback','sedan','suv','muv','coupe','convertible','pickup','van','wagon')
+      sql`select ${listings.bodyType} as value, count(*)::int as total
+            from ${listings}
+           where ${listings.isActive}
+             and ${listings.bodyType} is not null
+             and ${listings.bodyType} not in ('hatchback','sedan','suv','muv','coupe','convertible','pickup','van','wagon')
            group by 1 order by 2 desc`,
     ),
     // Makes that differ only by case or punctuation still indicate a gap in the
     // canonical alias map.
     db.execute(
-      sql`select lower(regexp_replace(${carListings.make}, '[^a-zA-Z0-9]', '', 'g')) as normalized,
-                 string_agg(distinct ${carListings.make}, ' | ') as variants,
+      sql`select lower(regexp_replace(${listings.make}, '[^a-zA-Z0-9]', '', 'g')) as normalized,
+                 string_agg(distinct ${listings.make}, ' | ') as variants,
                  count(*)::int as total
-            from ${carListings}
-           where ${carListings.isActive}
+            from ${listings}
+           where ${listings.isActive}
            group by 1
-          having count(distinct ${carListings.make}) > 1
+          having count(distinct ${listings.make}) > 1
            order by 3 desc`,
     ),
   ]);

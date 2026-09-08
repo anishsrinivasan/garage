@@ -1,4 +1,4 @@
-import { db, carListings, garages } from "@preowned-cars/db";
+import { db, listings, garages } from "@preowned-cars/db";
 import {
   eq,
   and,
@@ -66,7 +66,7 @@ const PAGE_SIZE = 24;
  * marketplace adapters never populated it, so 181 of 500 rows would sort as
  * infinitely old.
  */
-const AGE_DAYS = sql`extract(epoch from (now() - coalesce(${carListings.listedAt}, ${carListings.firstSeenAt}))) / 86400.0`;
+const AGE_DAYS = sql`extract(epoch from (now() - coalesce(${listings.listedAt}, ${listings.firstSeenAt}))) / 86400.0`;
 
 /**
  * The default feed ordering.
@@ -92,7 +92,7 @@ const RECENCY = sql`(
 
 const PRICE_TIER = sql`(case ${sql.join(
   PRICE_TIERS.filter((tier) => tier.min > 0).map(
-    (tier) => sql`when ${carListings.price} >= ${tier.min} then ${tier.multiplier}::numeric`,
+    (tier) => sql`when ${listings.price} >= ${tier.min} then ${tier.multiplier}::numeric`,
   ),
   sql` `,
 )} else 1 end)`;
@@ -100,34 +100,34 @@ const PRICE_TIER = sql`(case ${sql.join(
 const RELEVANCE_SCORE = sql`(
   ${RECENCY}
   * ${PRICE_TIER}
-  * (case when ${carListings.saleStatus} = 'sold' then ${RANKING_WEIGHTS.soldPenalty}::numeric else 1 end)
-  * (case when ${carListings.lastSeenAt} < now() - ${`${STALE_AFTER_DAYS} days`}::interval then ${RANKING_WEIGHTS.stalePenalty}::numeric else 1 end)
-  * (case when ${carListings.needsReview} then ${RANKING_WEIGHTS.needsReviewPenalty}::numeric else 1 end)
-  * (case when jsonb_array_length(coalesce(${carListings.media}, '[]'::jsonb)) > 0 then ${RANKING_WEIGHTS.hasMedia}::numeric else 1 end)
-  * (case when coalesce((${carListings.media} -> 0 ->> 'score')::numeric, 0) >= 60 then ${RANKING_WEIGHTS.hasScoredMedia}::numeric else 1 end)
-  * (case when ${carListings.price} is not null then ${RANKING_WEIGHTS.hasPrice}::numeric else 1 end)
-  * (case when lower(${carListings.make}) = ANY(ARRAY[${sql.join(
+  * (case when ${listings.saleStatus} = 'sold' then ${RANKING_WEIGHTS.soldPenalty}::numeric else 1 end)
+  * (case when ${listings.lastSeenAt} < now() - ${`${STALE_AFTER_DAYS} days`}::interval then ${RANKING_WEIGHTS.stalePenalty}::numeric else 1 end)
+  * (case when ${listings.needsReview} then ${RANKING_WEIGHTS.needsReviewPenalty}::numeric else 1 end)
+  * (case when jsonb_array_length(coalesce(${listings.media}, '[]'::jsonb)) > 0 then ${RANKING_WEIGHTS.hasMedia}::numeric else 1 end)
+  * (case when coalesce((${listings.media} -> 0 ->> 'score')::numeric, 0) >= 60 then ${RANKING_WEIGHTS.hasScoredMedia}::numeric else 1 end)
+  * (case when ${listings.price} is not null then ${RANKING_WEIGHTS.hasPrice}::numeric else 1 end)
+  * (case when lower(${listings.make}) = ANY(ARRAY[${sql.join(
     PREMIUM_MAKES.map((m: string) => sql`${m}`),
     sql`, `,
   )}]::text[]) then ${RANKING_WEIGHTS.premiumMake}::numeric else 1 end)
-  * (case when ${carListings.kmDriven} is not null
-              and ${carListings.fuelType} is not null
-              and ${carListings.transmission} is not null
-              and ${carListings.bodyType} is not null
+  * (case when ${listings.kmDriven} is not null
+              and ${listings.fuelType} is not null
+              and ${listings.transmission} is not null
+              and ${listings.bodyType} is not null
          then ${RANKING_WEIGHTS.completeSpecs}::numeric else 1 end)
 )`;
 
 function buildConditions(filters: ListingFilters): SQL[] {
   const conditions: SQL[] = [
-    eq(carListings.isActive, true),
+    eq(listings.isActive, true),
     // Only the head of a dedup cluster reaches the feed; the reposts of the
     // same car stay reachable by URL but stop repeating in the grid.
-    eq(carListings.isClusterHead, true),
+    eq(listings.isClusterHead, true),
   ];
 
   if (!filters.includeStale) {
     conditions.push(
-      sql`${carListings.lastSeenAt} >= now() - ${`${STALE_AFTER_DAYS * 3} days`}::interval`,
+      sql`${listings.lastSeenAt} >= now() - ${`${STALE_AFTER_DAYS * 3} days`}::interval`,
     );
   }
 
@@ -135,43 +135,43 @@ function buildConditions(filters: ListingFilters): SQL[] {
     const term = `%${filters.search}%`;
     conditions.push(
       or(
-        ilike(carListings.make, term),
-        ilike(carListings.model, term),
-        ilike(carListings.variant, term),
-        ilike(carListings.description, term),
+        ilike(listings.make, term),
+        ilike(listings.model, term),
+        ilike(listings.variant, term),
+        ilike(listings.description, term),
       )!,
     );
   }
 
   if (filters.minPrice != null) {
-    conditions.push(gte(carListings.price, String(filters.minPrice)));
+    conditions.push(gte(listings.price, String(filters.minPrice)));
   }
   if (filters.maxPrice != null) {
-    conditions.push(lte(carListings.price, String(filters.maxPrice)));
+    conditions.push(lte(listings.price, String(filters.maxPrice)));
   }
   if (filters.minYear != null) {
-    conditions.push(gte(carListings.year, filters.minYear));
+    conditions.push(gte(listings.year, filters.minYear));
   }
   if (filters.maxYear != null) {
-    conditions.push(lte(carListings.year, filters.maxYear));
+    conditions.push(lte(listings.year, filters.maxYear));
   }
   if (filters.fuelType) {
-    conditions.push(eq(carListings.fuelType, filters.fuelType));
+    conditions.push(eq(listings.fuelType, filters.fuelType));
   }
   if (filters.transmission) {
-    conditions.push(eq(carListings.transmission, filters.transmission));
+    conditions.push(eq(listings.transmission, filters.transmission));
   }
   if (filters.bodyType) {
-    conditions.push(eq(carListings.bodyType, filters.bodyType));
+    conditions.push(eq(listings.bodyType, filters.bodyType));
   }
   if (filters.sourcePlatform) {
-    conditions.push(eq(carListings.sourcePlatform, filters.sourcePlatform));
+    conditions.push(eq(listings.sourcePlatform, filters.sourcePlatform));
   }
   if (filters.city) {
-    conditions.push(eq(carListings.city, filters.city));
+    conditions.push(eq(listings.city, filters.city));
   }
   if (filters.garage) {
-    conditions.push(eq(carListings.garageId, filters.garage));
+    conditions.push(eq(listings.garageId, filters.garage));
   }
 
   const window = FRESHNESS_WINDOWS[filters.freshness as keyof typeof FRESHNESS_WINDOWS];
@@ -183,10 +183,10 @@ function buildConditions(filters: ListingFilters): SQL[] {
 }
 
 const SORT_COLUMNS = {
-  price: carListings.price,
-  year: carListings.year,
-  kmDriven: carListings.kmDriven,
-  scrapedAt: carListings.firstSeenAt,
+  price: listings.price,
+  year: listings.year,
+  kmDriven: listings.kmDriven,
+  scrapedAt: listings.firstSeenAt,
 } as const;
 
 export async function getListings(filters: ListingFilters) {
@@ -199,14 +199,14 @@ export async function getListings(filters: ListingFilters) {
   if (sortField === "relevance") {
     orderBy = [
       sql`${RELEVANCE_SCORE} DESC`,
-      sql`${carListings.price} DESC NULLS LAST`,
-      desc(carListings.firstSeenAt),
+      sql`${listings.price} DESC NULLS LAST`,
+      desc(listings.firstSeenAt),
     ];
   } else if (sortField === "listedAt") {
     // Explicit "recently listed" — pure date, no quality weighting.
     orderBy = [
       sortOrder === "asc" ? sql`${AGE_DAYS} DESC` : sql`${AGE_DAYS} ASC`,
-      desc(carListings.firstSeenAt),
+      desc(listings.firstSeenAt),
     ];
   } else {
     const column = SORT_COLUMNS[sortField];
@@ -214,52 +214,60 @@ export async function getListings(filters: ListingFilters) {
       sortOrder === "asc"
         ? sql`${column} ASC NULLS LAST`
         : sql`${column} DESC NULLS LAST`,
-      desc(carListings.firstSeenAt),
+      desc(listings.firstSeenAt),
     ];
   }
+
+  // Every sort above can still tie: 16 listings share an identical
+  // (listed_at, first_seen_at), and five share (year, first_seen_at). Without a
+  // final unique tiebreaker Postgres is free to return tied rows in any order,
+  // which it does — the order changed after a table rewrite. That is not merely
+  // cosmetic: OFFSET pagination over an unstable sort can show the same listing
+  // on two pages and skip another entirely.
+  orderBy.push(desc(listings.id));
 
   const page = Math.max(1, filters.page ?? 1);
   const pageSize = filters.pageSize ?? PAGE_SIZE;
   const offset = (page - 1) * pageSize;
 
-  const [listings, [totals]] = await Promise.all([
+  const [rows, [totals]] = await Promise.all([
     db
       .select({
-        id: carListings.id,
-        make: carListings.make,
-        model: carListings.model,
-        variant: carListings.variant,
-        year: carListings.year,
-        price: carListings.price,
-        listingStatus: carListings.listingStatus,
-        saleStatus: carListings.saleStatus,
-        kmDriven: carListings.kmDriven,
-        fuelType: carListings.fuelType,
-        transmission: carListings.transmission,
-        bodyType: carListings.bodyType,
-        city: carListings.city,
-        sourcePlatform: carListings.sourcePlatform,
-        media: carListings.media,
-        heroMediaUrl: carListings.heroMediaUrl,
-        listedAt: carListings.listedAt,
-        firstSeenAt: carListings.firstSeenAt,
-        lastSeenAt: carListings.lastSeenAt,
-        garageId: carListings.garageId,
+        id: listings.id,
+        make: listings.make,
+        model: listings.model,
+        variant: listings.variant,
+        year: listings.year,
+        price: listings.price,
+        listingStatus: listings.listingStatus,
+        saleStatus: listings.saleStatus,
+        kmDriven: listings.kmDriven,
+        fuelType: listings.fuelType,
+        transmission: listings.transmission,
+        bodyType: listings.bodyType,
+        city: listings.city,
+        sourcePlatform: listings.sourcePlatform,
+        media: listings.media,
+        heroMediaUrl: listings.heroMediaUrl,
+        listedAt: listings.listedAt,
+        firstSeenAt: listings.firstSeenAt,
+        lastSeenAt: listings.lastSeenAt,
+        garageId: listings.garageId,
         garageName: garages.name,
         garageSlug: garages.slug,
       })
-      .from(carListings)
-      .leftJoin(garages, eq(garages.id, carListings.garageId))
+      .from(listings)
+      .leftJoin(garages, eq(garages.id, listings.garageId))
       .where(where)
       .orderBy(...orderBy)
       .limit(pageSize)
       .offset(offset),
-    db.select({ total: count() }).from(carListings).where(where),
+    db.select({ total: count() }).from(listings).where(where),
   ]);
 
   const total = totals?.total ?? 0;
   return {
-    listings,
+    listings: rows,
     total,
     page,
     pageSize,
@@ -272,15 +280,15 @@ export type FeedListing = Awaited<ReturnType<typeof getListings>>["listings"][nu
 export async function getListingById(id: string) {
   const [row] = await db
     .select({
-      listing: carListings,
+      listing: listings,
       garageName: garages.name,
       garageSlug: garages.slug,
       garagePhone: garages.phone,
       garageInstagram: garages.instagramUrl,
     })
-    .from(carListings)
-    .leftJoin(garages, eq(garages.id, carListings.garageId))
-    .where(eq(carListings.id, id))
+    .from(listings)
+    .leftJoin(garages, eq(garages.id, listings.garageId))
+    .where(eq(listings.id, id))
     .limit(1);
   if (!row) return null;
   return {
@@ -297,21 +305,21 @@ export async function getClusterSiblings(listingId: string, clusterId: string | 
   if (!clusterId) return [];
   return db
     .select({
-      id: carListings.id,
-      sourceUrl: carListings.sourceUrl,
-      sourcePlatform: carListings.sourcePlatform,
-      listedAt: carListings.listedAt,
-      firstSeenAt: carListings.firstSeenAt,
-      price: carListings.price,
+      id: listings.id,
+      sourceUrl: listings.sourceUrl,
+      sourcePlatform: listings.sourcePlatform,
+      listedAt: listings.listedAt,
+      firstSeenAt: listings.firstSeenAt,
+      price: listings.price,
     })
-    .from(carListings)
+    .from(listings)
     .where(
       and(
-        eq(carListings.dedupClusterId, clusterId),
-        sql`${carListings.id} <> ${listingId}`,
+        eq(listings.dedupClusterId, clusterId),
+        sql`${listings.id} <> ${listingId}`,
       ),
     )
-    .orderBy(desc(carListings.firstSeenAt))
+    .orderBy(desc(listings.firstSeenAt))
     .limit(6);
 }
 
@@ -324,45 +332,45 @@ export async function getSimilarListings(listing: {
 }) {
   return db
     .select({
-      id: carListings.id,
-      make: carListings.make,
-      model: carListings.model,
-      variant: carListings.variant,
-      year: carListings.year,
-      price: carListings.price,
-      listingStatus: carListings.listingStatus,
-      saleStatus: carListings.saleStatus,
-      kmDriven: carListings.kmDriven,
-      fuelType: carListings.fuelType,
-      transmission: carListings.transmission,
-      city: carListings.city,
-      sourcePlatform: carListings.sourcePlatform,
-      media: carListings.media,
-      heroMediaUrl: carListings.heroMediaUrl,
-      listedAt: carListings.listedAt,
-      firstSeenAt: carListings.firstSeenAt,
+      id: listings.id,
+      make: listings.make,
+      model: listings.model,
+      variant: listings.variant,
+      year: listings.year,
+      price: listings.price,
+      listingStatus: listings.listingStatus,
+      saleStatus: listings.saleStatus,
+      kmDriven: listings.kmDriven,
+      fuelType: listings.fuelType,
+      transmission: listings.transmission,
+      city: listings.city,
+      sourcePlatform: listings.sourcePlatform,
+      media: listings.media,
+      heroMediaUrl: listings.heroMediaUrl,
+      listedAt: listings.listedAt,
+      firstSeenAt: listings.firstSeenAt,
       garageName: garages.name,
       garageSlug: garages.slug,
     })
-    .from(carListings)
-    .leftJoin(garages, eq(garages.id, carListings.garageId))
+    .from(listings)
+    .leftJoin(garages, eq(garages.id, listings.garageId))
     .where(
       and(
-        eq(carListings.isActive, true),
-        eq(carListings.isClusterHead, true),
-        sql`${carListings.id} <> ${listing.id}`,
+        eq(listings.isActive, true),
+        eq(listings.isClusterHead, true),
+        sql`${listings.id} <> ${listing.id}`,
         or(
           and(
-            eq(carListings.make, listing.make),
-            eq(carListings.model, listing.model),
+            eq(listings.make, listing.make),
+            eq(listings.model, listing.model),
           ),
           listing.garageId
-            ? eq(carListings.garageId, listing.garageId)
+            ? eq(listings.garageId, listing.garageId)
             : sql`false`,
         )!,
       ),
     )
-    .orderBy(sql`${RELEVANCE_SCORE} DESC`)
+    .orderBy(sql`${RELEVANCE_SCORE} DESC`, desc(listings.id))
     .limit(6);
 }
 
@@ -370,29 +378,29 @@ export async function getListingsByIds(ids: string[]) {
   if (ids.length === 0) return [];
   const results = await db
     .select({
-      id: carListings.id,
-      make: carListings.make,
-      model: carListings.model,
-      variant: carListings.variant,
-      year: carListings.year,
-      price: carListings.price,
-      listingStatus: carListings.listingStatus,
-      saleStatus: carListings.saleStatus,
-      kmDriven: carListings.kmDriven,
-      fuelType: carListings.fuelType,
-      transmission: carListings.transmission,
-      city: carListings.city,
-      sourcePlatform: carListings.sourcePlatform,
-      media: carListings.media,
-      heroMediaUrl: carListings.heroMediaUrl,
-      listedAt: carListings.listedAt,
-      firstSeenAt: carListings.firstSeenAt,
+      id: listings.id,
+      make: listings.make,
+      model: listings.model,
+      variant: listings.variant,
+      year: listings.year,
+      price: listings.price,
+      listingStatus: listings.listingStatus,
+      saleStatus: listings.saleStatus,
+      kmDriven: listings.kmDriven,
+      fuelType: listings.fuelType,
+      transmission: listings.transmission,
+      city: listings.city,
+      sourcePlatform: listings.sourcePlatform,
+      media: listings.media,
+      heroMediaUrl: listings.heroMediaUrl,
+      listedAt: listings.listedAt,
+      firstSeenAt: listings.firstSeenAt,
       garageName: garages.name,
       garageSlug: garages.slug,
     })
-    .from(carListings)
-    .leftJoin(garages, eq(garages.id, carListings.garageId))
-    .where(inArray(carListings.id, ids));
+    .from(listings)
+    .leftJoin(garages, eq(garages.id, listings.garageId))
+    .where(inArray(listings.id, ids));
   // Preserve input order (bookmarks are usually sorted newest-first upstream).
   const rank = new Map(ids.map((id, i) => [id, i]));
   return results.sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
@@ -419,8 +427,8 @@ export type FilterOptions = {
  */
 async function loadFilterOptions(): Promise<FilterOptions> {
   const activeOnly = and(
-    eq(carListings.isActive, true),
-    eq(carListings.isClusterHead, true),
+    eq(listings.isActive, true),
+    eq(listings.isClusterHead, true),
   );
 
   const [
@@ -434,34 +442,34 @@ async function loadFilterOptions(): Promise<FilterOptions> {
     [ranges],
   ] = await Promise.all([
     db
-      .selectDistinct({ value: carListings.city })
-      .from(carListings)
+      .selectDistinct({ value: listings.city })
+      .from(listings)
       .where(activeOnly)
-      .orderBy(asc(carListings.city)),
-    countsFor(carListings.fuelType, activeOnly),
-    countsFor(carListings.transmission, activeOnly),
-    countsFor(carListings.bodyType, activeOnly),
-    countsFor(carListings.sourcePlatform, activeOnly),
+      .orderBy(asc(listings.city)),
+    countsFor(listings.fuelType, activeOnly),
+    countsFor(listings.transmission, activeOnly),
+    countsFor(listings.bodyType, activeOnly),
+    countsFor(listings.sourcePlatform, activeOnly),
     db
       .select({
         id: garages.id,
         name: garages.name,
-        count: count(carListings.id),
+        count: count(listings.id),
       })
       .from(garages)
-      .innerJoin(carListings, and(eq(carListings.garageId, garages.id), activeOnly))
+      .innerJoin(listings, and(eq(listings.garageId, garages.id), activeOnly))
       .where(eq(garages.isActive, true))
       .groupBy(garages.id, garages.name)
-      .orderBy(desc(count(carListings.id))),
-    countsFor(carListings.make, activeOnly),
+      .orderBy(desc(count(listings.id))),
+    countsFor(listings.make, activeOnly),
     db
       .select({
-        minPrice: sql<string>`coalesce(min(${carListings.price}), 0)`,
-        maxPrice: sql<string>`coalesce(max(${carListings.price}), 0)`,
-        minYear: sql<number>`coalesce(min(${carListings.year}), 2000)`,
-        maxYear: sql<number>`coalesce(max(${carListings.year}), extract(year from now())::int)`,
+        minPrice: sql<string>`coalesce(min(${listings.price}), 0)`,
+        maxPrice: sql<string>`coalesce(max(${listings.price}), 0)`,
+        minYear: sql<number>`coalesce(min(${listings.year}), 2000)`,
+        maxYear: sql<number>`coalesce(max(${listings.year}), extract(year from now())::int)`,
       })
-      .from(carListings)
+      .from(listings)
       .where(activeOnly),
   ]);
 
@@ -490,7 +498,7 @@ async function countsFor(
 ): Promise<Array<{ value: string; count: number }>> {
   const rows = (await db
     .select({ value: column, total: count() })
-    .from(carListings)
+    .from(listings)
     .where(and(where, sql`${column} is not null`))
     .groupBy(column)
     .orderBy(desc(count()))) as Array<{ value: string | null; total: number }>;
@@ -518,10 +526,10 @@ async function loadCatalogueHealth(): Promise<CatalogueHealth> {
     db
       .select({
         active: count(),
-        addedThisWeek: sql<number>`count(*) filter (where ${carListings.firstSeenAt} >= now() - interval '7 days')::int`,
+        addedThisWeek: sql<number>`count(*) filter (where ${listings.firstSeenAt} >= now() - interval '7 days')::int`,
       })
-      .from(carListings)
-      .where(and(eq(carListings.isActive, true), eq(carListings.isClusterHead, true))),
+      .from(listings)
+      .where(and(eq(listings.isActive, true), eq(listings.isClusterHead, true))),
   ]);
 
   return {
@@ -546,15 +554,15 @@ export const getCatalogueHealth = unstable_cache(
 export async function getSitemapListings() {
   return db
     .select({
-      id: carListings.id,
-      updatedAt: carListings.updatedAt,
+      id: listings.id,
+      updatedAt: listings.updatedAt,
     })
-    .from(carListings)
+    .from(listings)
     .where(
       and(
-        eq(carListings.isActive, true),
-        eq(carListings.isClusterHead, true),
-        isNull(carListings.delistedAt),
+        eq(listings.isActive, true),
+        eq(listings.isClusterHead, true),
+        isNull(listings.delistedAt),
       ),
     )
     .limit(5000);

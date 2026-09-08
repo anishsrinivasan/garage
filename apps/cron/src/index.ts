@@ -20,7 +20,7 @@ import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { Cron } from "croner";
 import { desc, eq, sql } from "drizzle-orm";
-import { db, scrapeRuns, carListings, dealerSources, garages } from "@preowned-cars/db";
+import { db, scrapeRuns, listings, dealerSources, garages } from "@preowned-cars/db";
 import { ALL_SOURCES, type SourceName } from "@preowned-cars/scraper";
 import { loadConfig } from "./config";
 import {
@@ -105,12 +105,12 @@ app.get("/status", async (c) => {
         .limit(20),
       db
         .select({
-          active: sql<number>`count(*) filter (where ${carListings.isActive})::int`,
-          needsReview: sql<number>`count(*) filter (where ${carListings.needsReview} and ${carListings.isActive})::int`,
-          staleWeek: sql<number>`count(*) filter (where ${carListings.isActive} and ${carListings.lastSeenAt} < now() - interval '7 days')::int`,
-          addedToday: sql<number>`count(*) filter (where ${carListings.firstSeenAt} >= now() - interval '1 day')::int`,
+          active: sql<number>`count(*) filter (where ${listings.isActive})::int`,
+          needsReview: sql<number>`count(*) filter (where ${listings.needsReview} and ${listings.isActive})::int`,
+          staleWeek: sql<number>`count(*) filter (where ${listings.isActive} and ${listings.lastSeenAt} < now() - interval '7 days')::int`,
+          addedToday: sql<number>`count(*) filter (where ${listings.firstSeenAt} >= now() - interval '1 day')::int`,
         })
-        .from(carListings),
+        .from(listings),
       db
         .select({
           platform: dealerSources.platform,
