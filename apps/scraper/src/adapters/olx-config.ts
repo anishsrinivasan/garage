@@ -22,10 +22,18 @@ export const OLX_LOCATION = {
   slug: "chennai_g4059162",
 } as const;
 
+/**
+ * Overridable because a full run walks every detail page at 6/min — five pages
+ * of 40 cards is over half an hour, and a verification run that cannot finish
+ * proves nothing. The runner only persists once a source completes, so a run
+ * killed at 90% stores zero listings.
+ */
+const MAX_PAGES = Number(process.env.OLX_MAX_PAGES ?? 5);
+
 const SHARED = {
   name: "olx",
   baseUrl: "https://www.olx.in",
-  maxPages: 5,
+  maxPages: Number.isFinite(MAX_PAGES) && MAX_PAGES > 0 ? MAX_PAGES : 5,
   rateLimit: { requestsPerMinute: 6 },
   pageLoadTimeoutMs: 45000,
   navigationTimeoutMs: 20000,
