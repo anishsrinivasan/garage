@@ -15,11 +15,19 @@
 | Brand | **One**, spanning verticals | No per-vertical apps; one shell, vertical-aware routes |
 | Geography | Chennai first, **anywhere later** | Cities and localities become real tables now, not text columns |
 | Managed scraping | **Undecided** | Build the provider seam; ship the free self-hosted implementation behind it |
+| Database | **D1** (from PlanetScale Postgres) | Query layer needs a dialect port; money moves to integer paise |
+| Inference | **OpenRouter** | ~30 lines; `resolveModel()` is already a switch |
+| Hosting | Workers/Pages for web + admin; **scraper stays on the homelab** | Playwright and ffmpeg cannot run on Workers |
+| Alerts | **First-class**, not a phase-5 afterthought | Needs saved searches, a match evaluator and delivery channels |
 
-The last one shapes more than it looks. Because the budget is open, the plan
+The scraping row shapes more than it looks. Because the budget is open, the plan
 below **does not depend on a paid provider**. We build the interface, implement
 the hardened self-hosted path, and leave a managed provider as a one-file drop-in
 for whenever you want it.
+
+The infrastructure rows are new and are analysed in §10. Short version: D1 and
+OpenRouter are both good calls, but they add roughly a week and change the
+sequencing, and one of the four proposals needs correcting.
 
 ---
 
@@ -193,7 +201,173 @@ Nothing else changes.
 
 ---
 
-## 6. The five hard problems rentals has and cars didn't
+## 6. Infrastructure: the Cloudflare move, assessed
+
+Checked against the current Cloudflare docs rather than memory, because being
+wrong here is expensive.
+
+### 10.1 D1 — yes, with real work attached
+
+| Constraint | Value | Verdict for us |
+|---|---|---|
+| Max database size | 10 GB (Workers Paid) | **Fine.** Media lives in R2; 50k listings ≈ 100 MB |
+| Max columns per table | 100 | Fine — the core has ~30 |
+| Bound parameters per query | **100** | **Bites.** A 30-column upsert is fine per row, but multi-row inserts hit this immediately |
+| Queries per Worker invocation | 1,000 (paid) | **Bites.** The dedupe rebuild does one UPDATE per changed row |
+| Writes | **Single-threaded per database** | Scraper upserts serialise |
+| Max query duration | 30 s | Fine |
+
+**Cost:** effectively free at our scale, against a monthly Postgres bill. Over a
+year that is real money for a pre-revenue project. Read replication is a genuine
+bonus for a public search site.
+
+**What actually has to change:**
+
+1. **The scraper writes from outside Cloudflare.** D1 is reached through a
+   Workers binding or the REST API. The runner currently upserts row by row —
+   500 rows becomes 500 round-trips. Fix: a Worker write-endpoint taking batches,
+   using `db.batch()`. Two to three days.
+2. **Dedupe must become incremental.** Rebuilding every cluster in the table
+   will blow the 1,000-query cap. Only recompute clusters this run touched.
+   Better design regardless.
+3. **No array type.** `aliases` becomes a junction table (we query it);
+   `amenities` becomes JSON (we don't).
+4. **No native decimal.** Money moves to **integer paise** — genuinely better
+   than the current numeric-as-string round-trip, and it removes a class of bug.
+5. **The whole ranking query is dialect-specific.** `exp()`, interval arithmetic
+   and the `jsonb` operators all need SQLite equivalents.
+
+**Not a blocker, contrary to first instinct:** geography. I assumed the lack of
+PostGIS would hurt, but city-scale rental search needs locality filtering (a
+foreign key), map pins (two float columns) and radius search (bounding box plus
+haversine over a few thousand rows). SQLite handles all three. I was wrong to
+worry about it.
+
+### 10.2 Where each piece runs
+
+**The scraper cannot move.** Playwright and ffmpeg are native binaries; Workers
+cannot run them. Cloudflare Containers could — up to 4 vCPU and 12 GiB — but it
+bills per second for a workload the homelab already runs at zero marginal cost.
+**Keep the scraper on Dokploy.** Move only the web app and admin to Workers.
+
+### 10.3 The alternative worth knowing about
+
+**Workers + Hyperdrive + Postgres** keeps Postgres entirely — no dialect port, no
+batching rework — while still getting Workers hosting. Postgres would run on the
+homelab (free) or a small VPS (a few dollars a month).
+
+I am **not** recommending it, for one reason: putting the primary database on the
+homelab makes home power and internet the availability floor for the public site.
+D1 removes the homelab from the critical path for readers, which matters more
+than the week it costs.
+
+### 10.4 Sequencing — the one thing I would not do
+
+Do not fold the engine change into the schema split as a single step.
+
+Phase 0's entire value is: change one thing, prove cars renders identically.
+Change the shape, the SQL dialect, the driver, the money representation and the
+hosting at once, and a regression leaves you with five suspects.
+
+**So: two commits, not one.**
+
+- **0a** — split the schema on Postgres. Prove cars renders identically. *That
+  tests the abstraction.*
+- **0b** — port to D1 and OpenRouter. Prove cars renders identically again.
+  *That tests the engine.*
+
+Same total work as doing them together, two clean signals instead of none, and
+if 0b hits a wall you stop with a working system and a proven abstraction rather
+than a half-migrated mess. Phase 0 grows from one week to two.
+
+### 10.5 OpenRouter — yes, and do it first
+
+`resolveModel()` in `ai/core.ts` is already a provider switch; adding OpenRouter
+is roughly thirty lines. It is the lowest-risk item on this list and it pays off
+immediately, because rentals extraction will need model comparison that a single
+hard-wired provider makes tedious.
+
+Two things to verify when the key lands: that the chosen model accepts **image
+inputs** (vision scoring depends on it) and that **structured output** works
+through OpenRouter's routing for the model picked. Both are normal; both are
+worth a ten-minute smoke test before building on them.
+
+Keep `llm_usage_logs` writing exactly as it does — cost visibility matters more,
+not less, once switching models is easy.
+
+---
+
+## 7. Cities and localities — a correction
+
+`snapdata.dev` is a clean, free, no-auth republication of the
+`dr5hn/countries-states-cities-database` — 152,970 cities worldwide with
+coordinates, ODbL. **Good for the `cities` table.** It saves an afternoon.
+
+**But it does not solve the problem rentals actually has.** That dataset is
+country → state → *city*. For India it has Chennai; it does not have Adyar,
+Velachery, Thiruvanmiyur or Perungudi. Localities — the thing every rental search
+is actually filtered by — are not in it.
+
+For localities:
+
+1. **OpenStreetMap via Overpass** is the right source. Indian cities have
+   `place=suburb` and `place=neighbourhood` nodes with coordinates. Free, ODbL.
+2. **Mine our own captions.** The LLM already reads location text; cluster what
+   it extracts and curate in the admin. This is how we catch broker slang —
+   "near Adyar signal", "OMR Perungudi" — that no gazetteer contains.
+3. **The admin queue takes the long tail**, exactly as unknown makes do today.
+
+Both sources are ODbL share-alike, which carries attribution obligations. A
+footer credit line is enough; worth doing from day one rather than retrofitting.
+
+---
+
+## 8. Alerts — first-class, not an afterthought
+
+I under-weighted this. Search is one-shot; **alerts are the retention loop and
+the monetisation hook**, and for rentals they are close to the whole product.
+People hunt for a flat daily for a month. Nobody hunts for a car that way.
+
+The freshness engine makes our alerts better than a portal's: we alert on
+`first_seen_at`, which is when the listing genuinely appeared, not when a crawler
+happened to notice it. That distinction is the difference between a useful alert
+and a spam generator.
+
+```sql
+saved_searches (
+  id, user_id, vertical, city_id,
+  label,                      -- "2BHK Adyar under 30k"
+  filters jsonb,              -- same shape the search page produces
+  channels text[],            -- email | telegram | webpush
+  min_interval_minutes,       -- rate limit per subscriber
+  last_matched_at, last_notified_at,
+  is_active, created_at
+)
+
+alert_deliveries (id, saved_search_id, listing_id, channel, sent_at, status)
+```
+
+**How it runs:** after each scrape completes, the cron service takes the listings
+whose `first_seen_at` falls in this run, evaluates them against active saved
+searches, and enqueues deliveries. It is vertical-agnostic — it operates on the
+core `listings` table plus a filter blob — so cars gets alerts for free.
+
+`alert_deliveries` exists to guarantee we never notify twice for the same
+listing, which is the failure mode that gets an alert product muted.
+
+**Channels, in the order I would build them:**
+
+1. **Email** — universal, free via Cloudflare Email Routing or Resend.
+2. **Telegram** — free, instant, no approval process, and widely used in India.
+   The best value of the three.
+3. **WhatsApp** — where people actually are, but the Business API carries cost
+   and template approval. Worth it once there is demand to justify it, not before.
+
+Web push is cheap to add later but has poor open rates on iOS.
+
+---
+
+## 9. The five hard problems rentals has and cars didn't
 
 Naming these up front because they are where the schedule will actually go.
 
@@ -222,37 +396,44 @@ Naming these up front because they are where the schedule will actually go.
 
 ---
 
-## 7. Seven-week plan
+## 10. Timeline
+
+Grown from seven weeks to roughly nine, because the infrastructure move and a
+proper alerts product were both added after the first draft.
 
 | Phase | Weeks | Deliverable | Done when |
 |---|---|---|---|
-| **0 — Extract the engine** | 1 | `packages/pipeline` + `packages/verticals`, schema split, cars as vertical #1 | **Cars renders identically to today.** That is the regression test for the abstraction |
-| **1 — Harden ingestion** | 1 | `DiscoveryProvider`, session pool, challenge detection, backoff | A killed session self-heals; a challenge page marks the session cold instead of silently returning nothing |
-| **2 — Geography** | 0.5 | `cities` + `localities`, Chennai localities seeded with aliases | Filtering by locality works; unknown localities land in the admin queue |
-| **3 — Rentals ingestion** | 2 | Rentals vertical: schema, prompt, normaliser, interior scoring, cluster key. 15–25 broker accounts | **300+ live rental listings**, ≥90% with correct rent, ≥80% with a locality |
+| **0a — Split the schema** | 1 | `packages/pipeline` + `packages/verticals`, core/attrs split, cars as vertical #1 — **still on Postgres** | **Cars renders identically.** Tests the abstraction |
+| **0b — Move the engine** | 1 | D1 port, OpenRouter, batched writes, incremental dedupe, money as paise | **Cars renders identically again.** Tests the engine |
+| **1 — Harden ingestion** | 1 | `DiscoveryProvider`, session pool, challenge detection, backoff | A killed session self-heals; a challenge page marks the session cold rather than silently returning nothing |
+| **2 — Geography** | 0.5 | `cities` from snapdata, Chennai localities from OSM + alias table | Locality filtering works; unknown localities land in the admin queue |
+| **3 — Rentals ingestion** | 2 | Rentals vertical: schema, prompt, normaliser, interior scoring, cluster key. 15–25 broker accounts | **300+ live listings**, ≥90% with correct rent, ≥80% with a locality |
 | **4 — Rentals surface** | 2 | Search, filters, map, freshness ranking, WhatsApp handoff | Publicly shippable at `/rent` |
-| **5 — MCP + alerts** | 0.5 | MCP server over the index, saved searches | `find_listings` answers from Claude |
+| **5 — Alerts** | 1 | Saved searches, match evaluator, email + Telegram delivery | A saved search fires once, and only once, per matching listing |
+| **6 — MCP** | 0.5 | MCP server over the index | `find_listings` answers from Claude |
 
-**Stopping rule:** if phase 0 or phase 3 overruns by more than a week, the
-abstraction is wrong. Stop and reassess rather than pushing through — that
-outcome is information, not failure.
+**Stopping rules.** If **0a** overruns by more than a week, the vertical
+abstraction is wrong. If **0b** overruns, stop and stay on Postgres — the
+abstraction still stands and you have lost nothing but the hosting bill. If
+**3** overruns, the engine does not generalise. Each is information, not failure.
 
-### Sequencing note
+### Why cars migrates first
 
-Phase 0 migrates cars onto the generic core *deliberately*. Building rentals on a
-new schema while cars stays on the old one would mean the pipeline writes to two
-shapes, which is the worst of both. Migrating cars first makes "cars still works"
-the proof that the engine generalises, before a single rental listing exists.
+Building rentals on a new schema while cars stays on the old one would mean the
+pipeline writes two shapes — the worst of both. Migrating cars makes "cars still
+works" the proof that the engine generalises, before a single rental listing
+exists.
 
----
+## 11. First tasks
 
-## 8. First tasks
+**Do OpenRouter first** — it is thirty lines, independent of everything else, and
+it de-risks the rentals prompt work that comes later.
 
-In order, starting now:
+Then phase 0a, in order:
 
 1. `packages/pipeline` — move the genuinely agnostic modules across
    (`instagram-media`, `video-frames`, `r2`, `images`, `progress`,
-   `source-health`, `delist`, `ai/core`). No logic changes; imports only.
+   `source-health`, `delist`, `ai/core`). Imports only, no logic changes.
 2. Define `Vertical<TAttrs>` in `packages/verticals/src/types.ts`.
 3. Implement `verticals/cars` by *moving* the existing prompt, normaliser,
    cluster key and ranking weights into it. Still no behaviour change.
@@ -260,19 +441,21 @@ In order, starting now:
    `listing_car_attrs`; backfill from `car_listings`; rename `garages` and
    `dealer_sources`. Keep `car_listings` as a view for one release so nothing
    breaks mid-migration.
-5. Point `apps/web` at the core + `loadAttrs`. **Diff the rendered home page
-   against today's.** If it matches, phase 0 is done.
+5. Point `apps/web` at the core plus `loadAttrs`. **Diff the rendered home page
+   against today's.** If it matches, 0a is done.
 
-Only then start on rentals.
+Only then 0b, and only then rentals.
 
----
-
-## 9. Open items
+## 12. Open items
 
 - Domain and brand name — not blocking, placeholder in code until decided.
+- OpenRouter key (you mentioned sending it separately) — needed before phase 0b.
+- Confirm the current PlanetScale bill, so the D1 saving is a real number rather
+  than an assumption.
 - Which 15–25 Chennai broker accounts to seed. Worth compiling that list during
   phase 0 so phase 3 starts with inputs ready.
 - Map provider for phase 4 (MapLibre with free tiles is the zero-cost default).
 - Whether to keep the Cars24 and CarDekho adapters. CarDekho only yields 20
   listings per run because it paginates client-side; both are low value next to
   Instagram, and dropping them would remove ~1,100 lines.
+
