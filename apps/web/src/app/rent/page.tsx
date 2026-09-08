@@ -8,7 +8,18 @@ import { RentalCard, RentalCardSkeleton } from "@/app/components/rental-card";
 import { Pagination } from "@/app/components/pagination";
 import { MobileFilterToggle } from "@/app/components/mobile-filter-toggle";
 
-export const revalidate = 300;
+/**
+ * Rendered per request, not ISR.
+ *
+ * Next classified this route dynamic because it reads searchParams, and
+ * `revalidate` only ever applied to the cached data underneath. vinext reads
+ * the same export as "prerender and revalidate every 300s", which for a
+ * filter-driven feed means one ISR key per filter combination — and on a cold
+ * key it serves the shell and fills the cache behind the request, so the first
+ * visitor to any new combination saw a page with no results. Being explicit
+ * makes both runtimes agree.
+ */
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Rentals in Chennai",

@@ -1,7 +1,7 @@
 import { db, listings, listingRentalAttrs, localities, garages } from "@classifieds/db";
 import { and, asc, count, desc, eq, gte, ilike, inArray, lte, or, sql, type SQL } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
-import { unstable_cache } from "next/cache";
+import { cachedQuery } from "./request-cache";
 import {
   FRESHNESS_WINDOWS,
   MIN_RECENCY_MULTIPLIER,
@@ -393,7 +393,7 @@ async function loadRentalFacets(): Promise<RentalFacets> {
   };
 }
 
-export const getRentalFacets = unstable_cache(loadRentalFacets, ["rental-facets"], {
+export const getRentalFacets = cachedQuery(loadRentalFacets, ["rental-facets"], {
   tags: ["listings"],
   revalidate: 900,
 });

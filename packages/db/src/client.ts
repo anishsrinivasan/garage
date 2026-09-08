@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres, { type Sql } from "postgres";
 import * as schema from "./schema";
+import { hyperdriveConnectionString } from "./hyperdrive.node";
 
 // Without PgBouncer we must aggressively cap client-side pool size. A Next.js
 // dev server + HMR, CLI scripts, and serverless invocations otherwise each
@@ -23,7 +24,9 @@ declare global {
 // Studio, set it locally with `SET search_path TO torque, public;` or via
 // the connection URL when using a non-pooled session.
 function createSql(): Sql {
-  const connectionString = process.env.DATABASE_URL;
+  // Hyperdrive first when running on Workers; DATABASE_URL everywhere else.
+  const connectionString =
+    hyperdriveConnectionString() ?? process.env.DATABASE_URL;
   if (!connectionString) {
     throw new Error("DATABASE_URL environment variable is required");
   }
@@ -35,6 +38,14 @@ function createSql(): Sql {
       idle_timeout: IDLE_TIMEOUT,
       connect_timeout: CONNECT_TIMEOUT,
       prepare: false,
+      // postgres.js otherwise spends a round trip introspecting pg_type before
+      // it will run the first query on a connection. On a warm Node server that
+      // is invisible; on a cold Cloudflare Worker isolate it is an extra
+      // round trip to Hyderabad before any work starts, and the first request
+      // to a new isolate was rendering an empty page because of it — which ISR
+      // then cached and served. The schema uses no custom types, so there is
+      // nothing here worth the trip.
+      fetch_types: false,
     });
 
   if (process.env.NODE_ENV !== "production") {

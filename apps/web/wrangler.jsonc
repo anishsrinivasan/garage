@@ -1,0 +1,36 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "classifieds-web",
+  "compatibility_date": "2026-09-08",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "main": "vinext/server/fetch-handler",
+  "assets": {
+    "directory": "dist/client",
+    "not_found_handling": "none",
+    "binding": "ASSETS"
+  },
+  "cache": {
+    "enabled": true
+  },
+  "version_metadata": {
+    "binding": "CF_VERSION_METADATA"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "VINEXT_KV_CACHE",
+      "id": "58fb150aaae44023b1dbeec2c84547ca"
+    }
+  ],
+  // Pooling in front of PlanetScale. A Worker cannot hold a client-side pool
+  // the way the Node server does, so every isolate would otherwise open its own
+  // connection. Reading it still needs a code change in packages/db; the
+  // binding is declared here so that change is the only remaining step.
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "3eb81b450be94b398beb54fc7725645f"
+    }
+  ]
+}

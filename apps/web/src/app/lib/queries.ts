@@ -15,7 +15,7 @@ import {
   SQL,
 } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
-import { unstable_cache } from "next/cache";
+import { cachedQuery } from "./request-cache";
 import {
   FRESHNESS_HALF_LIFE_DAYS,
   FRESHNESS_WINDOWS,
@@ -515,7 +515,7 @@ async function countsFor(
     .map((r) => ({ value: r.value, count: r.total }));
 }
 
-export const getFilterOptions = unstable_cache(loadFilterOptions, ["filter-options"], {
+export const getFilterOptions = cachedQuery(loadFilterOptions, ["filter-options"], {
   tags: ["listings"],
   revalidate: 900,
 });
@@ -558,7 +558,7 @@ async function loadCatalogueHealth(): Promise<CatalogueHealth> {
  * unconditionally, which was untrue for fifteen weeks while the Instagram
  * scraper was failing silently.
  */
-export const getCatalogueHealth = unstable_cache(
+export const getCatalogueHealth = cachedQuery(
   loadCatalogueHealth,
   ["catalogue-health"],
   { tags: ["listings"], revalidate: 300 },

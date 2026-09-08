@@ -13,12 +13,21 @@ import { MobileFilterToggle } from "@/app/components/mobile-filter-toggle";
 import { relativeAge } from "@/app/lib/format";
 
 /**
- * The feed changes only when a scrape runs, so it revalidates on a timer and on
- * the `listings` tag the scraper pings. It used to be `force-dynamic`, which
- * re-ran the full query plus five `SELECT DISTINCT` filter queries on every
- * single page view.
+ * Rendered per request.
+ *
+ * This carried `revalidate = 300` to avoid re-running the feed query and five
+ * `SELECT DISTINCT` facet queries on every view. The facets are the expensive
+ * part and they are already memoised by `unstable_cache` under the `listings`
+ * tag, so the export was buying little: because the page reads searchParams,
+ * Next classified it dynamic and rendered it per request regardless.
+ *
+ * vinext reads the same export as "prerender, revalidate every 300s", which for
+ * a filter-driven feed means one ISR key per filter combination — and on a cold
+ * key it streams the shell and fills the cache behind the request, so the first
+ * visitor to any new combination got a page with no results. Saying what was
+ * already true makes both runtimes agree.
  */
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 interface PageProps {
   searchParams: Promise<Record<string, string | undefined>>;
