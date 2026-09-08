@@ -10,7 +10,8 @@
     "scrape:cars24": "bun run src/index.ts --source cars24",
     "scrape:cardekho": "bun run src/index.ts --source cardekho",
     "scrape:olx": "bun run src/index.ts --source olx",
-    "session:import": "bun run src/session-import.ts"
+    "session:import": "bun run src/session-import.ts",
+    "create-alert": "bun run src/create-alert.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.69",

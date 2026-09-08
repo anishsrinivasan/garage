@@ -32,7 +32,7 @@ import { relativeAge, STALE_AFTER_DAYS } from "@classifieds/shared";
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://localhost:3000";
 
 const server = new McpServer({
-  name: "torque-listings",
+  name: "classifieds-listings",
   version: "0.1.0",
 });
 
