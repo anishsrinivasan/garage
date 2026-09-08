@@ -299,13 +299,16 @@ async function fetchSinglePost(
           width: null,
           height: null,
           posterUrl: null,
-          scorePayload: stored
-            ? { kind: "url", url: stored }
-            : {
-                kind: "base64",
-                mediaType: "image/jpeg",
-                data: frame.buffer.toString("base64"),
-              },
+          // Inline base64 rather than the R2 URL we just wrote. Handing the
+          // model a freshly-uploaded object makes it race the CDN's
+          // propagation, and a real run failed exactly that way: "Failed to
+          // download .../0.jpg: TimeoutError". We already hold the bytes, so
+          // sending them costs one round-trip less and cannot race at all.
+          scorePayload: {
+            kind: "base64",
+            mediaType: "image/jpeg",
+            data: frame.buffer.toString("base64"),
+          },
         });
       }
 
@@ -344,13 +347,13 @@ async function fetchSinglePost(
       width: candidate.width,
       height: candidate.height,
       posterUrl: null,
-      scorePayload: stored
-        ? { kind: "url", url: stored }
-        : {
-            kind: "base64",
-            mediaType,
-            data: download.buffer.toString("base64"),
-          },
+      // Same reasoning as the reel frames above: never make the model fetch an
+      // object we uploaded moments ago.
+      scorePayload: {
+        kind: "base64",
+        mediaType,
+        data: download.buffer.toString("base64"),
+      },
     });
     if (!posterUrl) posterUrl = url;
   }

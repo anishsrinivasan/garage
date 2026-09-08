@@ -1,28 +1,22 @@
 /**
- * Seeds Chennai rental broker accounts.
+ * Registers Chennai rental broker accounts.
  *
- *   bun run apps/scraper/src/seed-rental-brokers.ts [handle ...]
+ *   bun run apps/scraper/src/seed-rental-brokers.ts <handle> [handle ...]
  *
- * With no arguments it seeds the starter list below. Pass handles to add your
- * own. The admin's add-by-Instagram flow is the nicer path once you have one;
- * this exists so a fresh install has something to scrape.
+ * Handles are required. An earlier version shipped a "starter list" of plausible
+ * names — four of the five did not exist, and the run spent a minute discovering
+ * that. Guessed handles are worse than none: they produce empty runs that look
+ * like a broken scraper.
  *
- * Verify a handle actually posts rental inventory before adding it — a page
- * that posts only interior-design content burns extraction spend and returns
- * nothing.
+ * Find real ones by searching Instagram for the locality plus "rent", then check
+ * the account actually posts inventory rather than interior-design content.
+ * The admin's add-by-Instagram flow previews the profile before saving, which is
+ * the better path once you have the app running.
  */
 
 import { and, eq } from "drizzle-orm";
 import { db, garages, dealerSources } from "@preowned-cars/db";
 import { normalizeHandle, slugify } from "./garage-onboarding";
-
-const STARTER_HANDLES = [
-  "chennairentalhomes",
-  "chennai_rental_property",
-  "rentalhouse_chennai",
-  "chennai_house_for_rent",
-  "homes4rentchennai",
-];
 
 async function upsertBroker(rawHandle: string): Promise<"created" | "updated"> {
   const handle = normalizeHandle(rawHandle);
@@ -72,10 +66,18 @@ async function upsertBroker(rawHandle: string): Promise<"created" | "updated"> {
 }
 
 async function main() {
-  const handles = process.argv.slice(2);
-  const targets = handles.length > 0 ? handles : STARTER_HANDLES;
+  const targets = process.argv.slice(2);
+  if (targets.length === 0) {
+    console.error(
+      "Usage: bun run apps/scraper/src/seed-rental-brokers.ts <handle> [handle ...]\n\n" +
+        "Handles are required on purpose — a guessed handle produces an empty run\n" +
+        "that looks like a broken scraper. Verify the account exists and posts\n" +
+        "rental inventory first.",
+    );
+    process.exit(1);
+  }
 
-  console.log(`Seeding ${targets.length} rental broker(s)…`);
+  console.log(`Registering ${targets.length} rental broker(s)…`);
   let created = 0;
   let updated = 0;
   for (const handle of targets) {
