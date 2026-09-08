@@ -1,5 +1,5 @@
 import type { ZodType } from "zod";
-import type { RankingWeights } from "@preowned-cars/shared";
+import type { RankingWeights } from "@classifieds/shared";
 
 /**
  * The contract every vertical implements.

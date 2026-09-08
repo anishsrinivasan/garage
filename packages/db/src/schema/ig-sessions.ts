@@ -7,7 +7,7 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { torqueSchema } from "./_schema";
+import { appSchema } from "./_schema";
 
 /**
  * Instagram session pool.
@@ -21,7 +21,7 @@ import { torqueSchema } from "./_schema";
  * holding it can act as that Instagram account — so it never leaves the
  * database, never gets logged, and is not returned by any admin read path.
  */
-export const igSessions = torqueSchema.table(
+export const igSessions = appSchema.table(
   "ig_sessions",
   {
     id: uuid("id").defaultRandom().primaryKey(),

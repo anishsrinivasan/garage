@@ -13,7 +13,7 @@
 
 import { and, asc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { existsSync, readFileSync } from "node:fs";
-import { db, igSessions } from "@preowned-cars/db";
+import { db, igSessions } from "@classifieds/db";
 
 /** How long a session sits out after a challenge. Doubles per consecutive failure. */
 const BASE_COOLDOWN_MINUTES = 45;

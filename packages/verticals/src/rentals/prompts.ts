@@ -55,15 +55,24 @@ Score 0-100 on how well the image represents THIS property as a listing thumbnai
 90-100: Bright, wide shot of a real room or the building exterior. Space reads clearly, well lit, minimal clutter.
 70-89:  A real room but a tighter crop, dimmer light, or a less informative space (corridor, balcony, bathroom).
 40-69:  A floor plan, a heavily cluttered or dark room, or a partial view that conveys little.
-10-39:  A person is the main subject (broker to camera, family), or heavy text and graphics cover the space.
+10-39:  A person is the main subject (broker to camera, family), or graphics cover so much of the frame that no space is readable.
 0-9:    No property at all — logo card, price card, meme, map screenshot, unrelated photo.
 
+TEXT OVERLAY — read this before scoring:
+Indian broker reels burn marketing text ("3BHK FOR RENT", a price, a phone
+number) onto EVERY frame of EVERY clip. Text is therefore not a distinguishing
+signal here and must not by itself push a frame down. Score the space you can
+still see around and behind the caption, exactly as you would if the text were
+not there. Only treat text as a real problem when it genuinely hides the room —
+a full-bleed title card with no visible space behind it. A clear bedroom with a
+price banner across the bottom is still a good thumbnail.
+
 Also set these flags:
-- showsProperty: an interior or exterior of a real property is identifiable.
+- showsSubject: an interior or exterior of a real property is identifiable. Scoring caps hard on this one, so set it true whenever a real space is visible, even partially or behind a caption.
 - hasPlayButtonOverlay: a play triangle is drawn over the image. Instagram burns one into reel cover frames; those make poor thumbnails.
 - personDominates: a human is the largest or most prominent subject.
 - isFloorPlan: the image is a floor plan or layout drawing rather than a photograph.
 
-Prefer a living room or building exterior over a bathroom or a floor plan. Be strict: a thumbnail that does not show a livable space scores below 40. Give a short reason (max 12 words).
+Prefer a living room or building exterior over a bathroom or a floor plan. Be strict about whether a livable space is visible — but judge that through the overlay, not because of it. A thumbnail showing no livable space scores below 40. Give a short reason (max 12 words).
 
 Return one entry per image, with "index" matching the 1-based image number.`;

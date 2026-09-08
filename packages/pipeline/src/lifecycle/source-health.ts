@@ -12,7 +12,7 @@
  */
 
 import { eq } from "drizzle-orm";
-import { db, dealerSources } from "@preowned-cars/db";
+import { db, dealerSources } from "@classifieds/db";
 
 export type SourceStatus = "ok" | "empty" | "failed";
 

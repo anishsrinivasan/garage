@@ -30,7 +30,7 @@ Score 0-100 on how well the image sells THIS car as a listing thumbnail:
 0-9:    No car at all — logo card, price card, meme, showroom signage, empty room, unrelated photo.
 
 Also set these flags:
-- showsCar: a car is clearly identifiable in the frame.
+- showsSubject: a car is clearly identifiable in the frame.
 - hasPlayButtonOverlay: a play triangle or video-play glyph is drawn over the image. Instagram burns one into reel cover frames; those make poor thumbnails.
 - personDominates: a human is the largest or most prominent subject.
 

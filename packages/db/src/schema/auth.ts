@@ -1,5 +1,5 @@
 import { text, timestamp, boolean, index, uniqueIndex } from "drizzle-orm/pg-core";
-import { torqueSchema } from "./_schema";
+import { appSchema } from "./_schema";
 
 /**
  * better-auth core tables, backing the admin dashboard only.
@@ -12,7 +12,7 @@ import { torqueSchema } from "./_schema";
  * There is no public sign-up. Accounts are created with
  * `bun run apps/admin/scripts/create-user.ts`.
  */
-export const users = torqueSchema.table(
+export const users = appSchema.table(
   "user",
   {
     id: text("id").primaryKey(),
@@ -29,7 +29,7 @@ export const users = torqueSchema.table(
   }),
 );
 
-export const sessions = torqueSchema.table(
+export const sessions = appSchema.table(
   "session",
   {
     id: text("id").primaryKey(),
@@ -49,7 +49,7 @@ export const sessions = torqueSchema.table(
   }),
 );
 
-export const accounts = torqueSchema.table(
+export const accounts = appSchema.table(
   "account",
   {
     id: text("id").primaryKey(),
@@ -73,7 +73,7 @@ export const accounts = torqueSchema.table(
   }),
 );
 
-export const verifications = torqueSchema.table(
+export const verifications = appSchema.table(
   "verification",
   {
     id: text("id").primaryKey(),

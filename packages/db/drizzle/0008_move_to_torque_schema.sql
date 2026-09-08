@@ -1,4 +1,4 @@
--- Phase 2: move every Torque table out of `public` and into a dedicated
+-- Phase 2: move every Classifieds table out of `public` and into a dedicated
 -- `torque` schema so the same PlanetScale Postgres database can host other
 -- side projects in their own schemas without table-name collisions.
 --

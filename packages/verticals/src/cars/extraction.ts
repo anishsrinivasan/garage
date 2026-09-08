@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { ImagePart, TextPart } from "@ai-sdk/provider-utils";
-import { generateStructured } from "@preowned-cars/pipeline";
+import { generateStructured } from "@classifieds/pipeline";
 import { CARS_EXTRACTION_PROMPT } from "./prompts";
 
 type UserPart = TextPart | ImagePart;

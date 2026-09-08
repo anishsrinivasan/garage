@@ -1,5 +1,5 @@
 import { uuid, text, integer, index } from "drizzle-orm/pg-core";
-import { torqueSchema } from "./_schema";
+import { appSchema } from "./_schema";
 
 /**
  * Car-specific attributes, split out of the core listing row.
@@ -8,7 +8,7 @@ import { torqueSchema } from "./_schema";
  * directly — it goes through `carsVertical.loadAttrs` / `persistAttrs`, which is
  * what lets a second vertical add its own table without the engine noticing.
  */
-export const listingCarAttrs = torqueSchema.table(
+export const listingCarAttrs = appSchema.table(
   "listing_car_attrs",
   {
     listingId: uuid("listing_id").primaryKey(),

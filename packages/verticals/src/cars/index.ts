@@ -1,10 +1,10 @@
-import { db, listings } from "@preowned-cars/db";
+import { db, listings } from "@classifieds/db";
 import {
   RANKING_WEIGHTS,
   FRESHNESS_HALF_LIFE_DAYS,
   reconcilePrice,
   assessPrice,
-} from "@preowned-cars/shared";
+} from "@classifieds/shared";
 import type {
   ClusterInput,
   CoreListing,

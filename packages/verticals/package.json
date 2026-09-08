@@ -1,5 +1,5 @@
 {
-  "name": "@preowned-cars/verticals",
+  "name": "@classifieds/verticals",
   "version": "0.0.1",
   "private": true,
   "main": "./src/index.ts",
@@ -14,11 +14,11 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@preowned-cars/db": "workspace:*",
-    "@preowned-cars/shared": "workspace:*",
+    "@classifieds/db": "workspace:*",
+    "@classifieds/shared": "workspace:*",
     "drizzle-orm": "^0.39.0",
     "zod": "^4.3.6",
-    "@preowned-cars/pipeline": "workspace:*",
+    "@classifieds/pipeline": "workspace:*",
     "@ai-sdk/provider-utils": "^4.0.0"
   },
   "devDependencies": {

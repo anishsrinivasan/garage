@@ -18,7 +18,7 @@
  *      relative sizes still identify which is which.
  */
 
-import { LAKH } from "@preowned-cars/shared";
+import { LAKH } from "@classifieds/shared";
 
 export type RentalMoney = {
   rent: number | null;

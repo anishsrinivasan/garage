@@ -7,7 +7,7 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { torqueSchema } from "./_schema";
+import { appSchema } from "./_schema";
 
 /**
  * A scrape source configuration — one strategy for harvesting listings
@@ -22,7 +22,7 @@ import { torqueSchema } from "./_schema";
  *   - "marketplace_aggregator" — aggregator platform (Cars24, CarDekho, OLX)
  *   - "dealer_website"         — dealer's own site (future)
  */
-export const dealerSources = torqueSchema.table(
+export const dealerSources = appSchema.table(
   "dealer_sources",
   {
     id: uuid("id").defaultRandom().primaryKey(),

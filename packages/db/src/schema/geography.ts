@@ -7,7 +7,7 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { torqueSchema } from "./_schema";
+import { appSchema } from "./_schema";
 
 /**
  * Cities and localities as real tables rather than a text column.
@@ -16,7 +16,7 @@ import { torqueSchema } from "./_schema";
  * and "Adyar" / "adyar" / "Adayar" / "near Adyar signal" must collapse to one
  * filter the way make and model already do. Multi-city then falls out for free.
  */
-export const cities = torqueSchema.table(
+export const cities = appSchema.table(
   "cities",
   {
     id: uuid("id").defaultRandom().primaryKey(),
@@ -34,7 +34,7 @@ export const cities = torqueSchema.table(
   }),
 );
 
-export const localities = torqueSchema.table(
+export const localities = appSchema.table(
   "localities",
   {
     id: uuid("id").defaultRandom().primaryKey(),

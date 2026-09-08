@@ -5,9 +5,9 @@ import {
   timestamp,
   jsonb,
 } from "drizzle-orm/pg-core";
-import { torqueSchema } from "./_schema";
+import { appSchema } from "./_schema";
 
-export const scrapeRuns = torqueSchema.table("scrape_runs", {
+export const scrapeRuns = appSchema.table("scrape_runs", {
   id: uuid("id").defaultRandom().primaryKey(),
   sourcePlatform: text("source_platform").notNull(),
   status: text("status").notNull().default("running"),

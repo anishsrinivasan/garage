@@ -7,9 +7,9 @@ import {
   jsonb,
   index,
 } from "drizzle-orm/pg-core";
-import { torqueSchema } from "./_schema";
+import { appSchema } from "./_schema";
 
-export const llmUsageLogs = torqueSchema.table(
+export const llmUsageLogs = appSchema.table(
   "llm_usage_logs",
   {
     id: uuid("id").defaultRandom().primaryKey(),

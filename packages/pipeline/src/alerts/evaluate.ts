@@ -21,7 +21,7 @@
  */
 
 import { and, eq, gte, inArray, sql } from "drizzle-orm";
-import { db, listings, savedSearches, alertDeliveries } from "@preowned-cars/db";
+import { db, listings, savedSearches, alertDeliveries } from "@classifieds/db";
 
 export type MatchableListing = {
   id: string;

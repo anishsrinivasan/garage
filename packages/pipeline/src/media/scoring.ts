@@ -17,7 +17,7 @@
 import { z } from "zod";
 import type { ImagePart, TextPart } from "@ai-sdk/provider-utils";
 import { generateStructured } from "../ai/core";
-import type { MediaSource } from "@preowned-cars/shared";
+import type { MediaSource } from "@classifieds/shared";
 
 export const MAX_SCORED_IMAGES = 6;
 
@@ -46,7 +46,7 @@ const ScoreSchema = z.object({
     z.object({
       index: z.number().int().positive(),
       score: z.number().int().min(0).max(100),
-      showsCar: z.boolean(),
+      showsSubject: z.boolean(),
       hasPlayButtonOverlay: z.boolean(),
       personDominates: z.boolean(),
       reason: z.string().max(120),
@@ -141,7 +141,12 @@ export async function scoreImages(
     let score = entry.score + SOURCE_ADJUSTMENT[image.source];
     if (entry.hasPlayButtonOverlay) score -= 20;
     if (entry.personDominates) score -= 15;
-    if (!entry.showsCar) score = Math.min(score, 15);
+    // Hard cap when the thing being sold isn't in frame. The field used to be
+    // called `showsCar`, which the rentals rubric never described — asked
+    // whether a photo of a bedroom showed a car, the model answered no, and
+    // every rental image was pinned at 15. 241 of 332 frames sat on exactly
+    // that value. Each vertical now defines `showsSubject` in its own rubric.
+    if (!entry.showsSubject) score = Math.min(score, 15);
     return {
       key: image.key,
       score: Math.max(0, Math.min(100, score)),

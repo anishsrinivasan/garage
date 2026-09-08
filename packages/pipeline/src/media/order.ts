@@ -9,7 +9,7 @@
  * and a frame we chose beats one Instagram chose.
  */
 
-import type { MediaItem, MediaSource } from "@preowned-cars/shared";
+import type { MediaItem, MediaSource } from "@classifieds/shared";
 import { scoreImages, type ScorableImage } from "./scoring";
 
 export type OrderableCandidate = {

@@ -6,9 +6,9 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { torqueSchema } from "./_schema";
+import { appSchema } from "./_schema";
 
-export const scrapedPosts = torqueSchema.table(
+export const scrapedPosts = appSchema.table(
   "scraped_posts",
   {
     id: uuid("id").defaultRandom().primaryKey(),

@@ -8,7 +8,7 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { torqueSchema } from "./_schema";
+import { appSchema } from "./_schema";
 
 /**
  * Saved searches and their deliveries.
@@ -18,7 +18,7 @@ import { torqueSchema } from "./_schema";
  * listing genuinely appeared, not when a crawler noticed it — which is what
  * separates a useful alert from a spam generator.
  */
-export const savedSearches = torqueSchema.table(
+export const savedSearches = appSchema.table(
   "saved_searches",
   {
     id: uuid("id").defaultRandom().primaryKey(),
@@ -50,7 +50,7 @@ export const savedSearches = torqueSchema.table(
   }),
 );
 
-export const alertDeliveries = torqueSchema.table(
+export const alertDeliveries = appSchema.table(
   "alert_deliveries",
   {
     id: uuid("id").defaultRandom().primaryKey(),

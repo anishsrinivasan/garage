@@ -3,7 +3,7 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { generateObject, type LanguageModel, type ModelMessage } from "ai";
 import type { ZodType } from "zod";
-import { db, llmUsageLogs } from "@preowned-cars/db";
+import { db, llmUsageLogs } from "@classifieds/db";
 
 const google = createGoogleGenerativeAI({
   apiKey:
@@ -40,7 +40,7 @@ function openrouter() {
     headers: {
       // OpenRouter uses these for attribution on its dashboard.
       "HTTP-Referer": process.env.OPENROUTER_SITE_URL ?? "https://localhost",
-      "X-Title": process.env.OPENROUTER_APP_NAME ?? "Torque",
+      "X-Title": process.env.OPENROUTER_APP_NAME ?? "Classifieds",
     },
   });
   return openrouterClient;

@@ -15,9 +15,9 @@ import {
   uniqueIndex,
   index,
 } from "drizzle-orm/pg-core";
-import { torqueSchema } from "./_schema";
+import { appSchema } from "./_schema";
 
-export const listings = torqueSchema.table(
+export const listings = appSchema.table(
   "listings",
   {
     id: uuid("id").defaultRandom().primaryKey(),

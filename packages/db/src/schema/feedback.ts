@@ -1,7 +1,7 @@
 import { uuid, text, integer, timestamp } from "drizzle-orm/pg-core";
-import { torqueSchema } from "./_schema";
+import { appSchema } from "./_schema";
 
-export const feedback = torqueSchema.table("feedback", {
+export const feedback = appSchema.table("feedback", {
   id: uuid("id").defaultRandom().primaryKey(),
   category: text("category").notNull(),
   rating: integer("rating"),

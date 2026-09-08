@@ -7,7 +7,7 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { torqueSchema } from "./_schema";
+import { appSchema } from "./_schema";
 
 /**
  * Garages represent a real-world business entity — an independent dealer
@@ -17,7 +17,7 @@ import { torqueSchema } from "./_schema";
  * future custom website scraper). Each car_listing is tagged with the garage
  * that actually owns the car, independent of which source we scraped it from.
  */
-export const garages = torqueSchema.table(
+export const garages = appSchema.table(
   "garages",
   {
     id: uuid("id").defaultRandom().primaryKey(),

@@ -1,6 +1,6 @@
 import { eq, inArray } from "drizzle-orm";
-import { db, listingRentalAttrs } from "@preowned-cars/db";
-import { RANKING_WEIGHTS } from "@preowned-cars/shared";
+import { db, listingRentalAttrs } from "@classifieds/db";
+import { RANKING_WEIGHTS } from "@classifieds/shared";
 import type {
   ClusterInput,
   CoreListing,

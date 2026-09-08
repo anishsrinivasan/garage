@@ -8,7 +8,7 @@
 
 import { z, type ZodType } from "zod";
 import type { ImagePart, TextPart } from "@ai-sdk/provider-utils";
-import { generateStructured } from "@preowned-cars/pipeline";
+import { generateStructured } from "@classifieds/pipeline";
 import type { Vertical } from "./types";
 
 type UserPart = TextPart | ImagePart;
@@ -113,13 +113,29 @@ export async function extractPostsBatch<T extends { index: number }>(
     console.log(
       `[${vertical.id}-llm] chunk ${chunkIdx}/${chunkCount} (${chunk.length} post(s))`,
     );
-    results.push(
-      ...(await extractChunk<T>(vertical, chunk, {
-        handle: context.handle,
-        chunkIndex: chunkIdx,
-        chunkCount,
-      })),
-    );
+    // A chunk that fails costs only its own posts.
+    //
+    // This used to let the error propagate, which meant one malformed model
+    // response discarded the whole handle: @ss_realestate_tn lost all 20 posts
+    // to a "response did not match schema" on chunk 4 of 4, even though chunks
+    // 1-3 had already come back clean. `null` is the signal callers already
+    // expect for a post the model could not read, so a dead chunk is just a run
+    // of nulls rather than an exception.
+    try {
+      results.push(
+        ...(await extractChunk<T>(vertical, chunk, {
+          handle: context.handle,
+          chunkIndex: chunkIdx,
+          chunkCount,
+        })),
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn(
+        `[${vertical.id}-llm] chunk ${chunkIdx}/${chunkCount} failed for @${context.handle}, dropping its ${chunk.length} post(s): ${message}`,
+      );
+      results.push(...chunk.map(() => null));
+    }
   }
   return results;
 }

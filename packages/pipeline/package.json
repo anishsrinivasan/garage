@@ -1,5 +1,5 @@
 {
-  "name": "@preowned-cars/pipeline",
+  "name": "@classifieds/pipeline",
   "version": "0.0.1",
   "private": true,
   "main": "./src/index.ts",
@@ -21,8 +21,8 @@
     "@ai-sdk/google": "^3.0.63",
     "@ai-sdk/openai-compatible": "2.0.74",
     "@aws-sdk/client-s3": "^3.1030.0",
-    "@preowned-cars/db": "workspace:*",
-    "@preowned-cars/shared": "workspace:*",
+    "@classifieds/db": "workspace:*",
+    "@classifieds/shared": "workspace:*",
     "ai": "^6.0.159",
     "drizzle-orm": "^0.39.0",
     "playwright": "^1.50.0",

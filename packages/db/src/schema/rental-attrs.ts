@@ -6,7 +6,7 @@ import {
   date,
   index,
 } from "drizzle-orm/pg-core";
-import { torqueSchema } from "./_schema";
+import { appSchema } from "./_schema";
 
 /**
  * Rental attributes, owned by the rentals vertical.
@@ -16,7 +16,7 @@ import { torqueSchema } from "./_schema";
  * ₹4.5 crore car at the top of the feed. Whole rupees, as integers: rent is
  * never fractional, and integers survive the move to SQLite intact.
  */
-export const listingRentalAttrs = torqueSchema.table(
+export const listingRentalAttrs = appSchema.table(
   "listing_rental_attrs",
   {
     listingId: uuid("listing_id").primaryKey(),

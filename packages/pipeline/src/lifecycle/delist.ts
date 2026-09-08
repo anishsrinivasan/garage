@@ -21,8 +21,8 @@
  */
 
 import { and, desc, eq, inArray, isNull, lt, notInArray, sql } from "drizzle-orm";
-import { db, listings, scrapeRuns } from "@preowned-cars/db";
-import { EXPIRE_AFTER_DAYS, STALE_AFTER_DAYS } from "@preowned-cars/shared";
+import { db, listings, scrapeRuns } from "@classifieds/db";
+import { EXPIRE_AFTER_DAYS, STALE_AFTER_DAYS } from "@classifieds/shared";
 
 /**
  * If a run confirms fewer than this fraction of a source's active listings, we

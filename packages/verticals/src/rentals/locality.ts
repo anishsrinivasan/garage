@@ -14,7 +14,7 @@
  */
 
 import { and, eq } from "drizzle-orm";
-import { db, localities } from "@preowned-cars/db";
+import { db, localities } from "@classifieds/db";
 
 export type LocalityMatch = {
   localityId: string;

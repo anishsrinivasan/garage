@@ -19,7 +19,7 @@
  */
 
 import { eq, inArray } from "drizzle-orm";
-import { db, listings, savedSearches } from "@preowned-cars/db";
+import { db, listings, savedSearches } from "@classifieds/db";
 import {
   getPendingDeliveries,
   markDelivered,
