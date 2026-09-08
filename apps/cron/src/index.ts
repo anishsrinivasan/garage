@@ -23,6 +23,7 @@ import { desc, eq, sql } from "drizzle-orm";
 import { db, scrapeRuns, listings, dealerSources, garages } from "@preowned-cars/db";
 import { ALL_SOURCES, type SourceName } from "@preowned-cars/scraper";
 import { getPoolHealth } from "@preowned-cars/pipeline";
+import { savedSearches, alertDeliveries } from "@preowned-cars/db";
 import { loadConfig } from "./config";
 import {
   enqueue,
@@ -88,7 +89,8 @@ app.get("/health", (c) =>
  */
 app.get("/status", async (c) => {
   try {
-    const [runs, [counts], sources, sessionPool] = await Promise.all([
+    const [runs, [counts], sources, sessionPool, [searchCounts], [deliveryCounts]] =
+      await Promise.all([
       db
         .select({
           sourcePlatform: scrapeRuns.sourcePlatform,
@@ -124,6 +126,19 @@ app.get("/status", async (c) => {
       // An empty or fully-cooled pool is the single most likely cause of a run
       // returning nothing, so it belongs next to the run history.
       getPoolHealth().catch(() => null),
+      db
+        .select({
+          activeSearches: sql<number>`count(distinct ${savedSearches.id}) filter (where ${savedSearches.isActive})::int`,
+        })
+        .from(savedSearches)
+        .catch(() => [{ activeSearches: 0 }]),
+      db
+        .select({
+          pending: sql<number>`count(*) filter (where ${alertDeliveries.status} = 'pending')::int`,
+          sent: sql<number>`count(*) filter (where ${alertDeliveries.status} = 'sent')::int`,
+        })
+        .from(alertDeliveries)
+        .catch(() => [{ pending: 0, sent: 0 }]),
     ]);
 
     const lastByPlatform = new Map<string, (typeof runs)[number]>();
@@ -136,6 +151,7 @@ app.get("/status", async (c) => {
     return c.json({
       catalogue: counts,
       sessionPool,
+      alerts: { ...searchCounts, ...deliveryCounts },
       lastRunPerSource: Object.fromEntries(lastByPlatform),
       recentRuns: runs,
       sources: sources.length,

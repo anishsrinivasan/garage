@@ -7,7 +7,12 @@ import { normalizeListingFields } from "@preowned-cars/verticals/cars";
 import { getVertical } from "@preowned-cars/verticals";
 import { createHash } from "crypto";
 import { validateListing } from "./utils/validation";
-import { delistUnseen, reactivate } from "@preowned-cars/pipeline";
+import {
+  delistUnseen,
+  reactivate,
+  evaluateAlerts,
+  loadNewListings,
+} from "@preowned-cars/pipeline";
 import { rebuildClustersFor } from "./dedupe-runner";
 import { findAggregatorSourceId, recordSourceRun } from "@preowned-cars/pipeline";
 
@@ -258,6 +263,9 @@ export async function runAdapter(
     .returning();
 
   let lastError: Error | undefined;
+  // Captured before the first attempt so alerts only consider listings this run
+  // actually brought in.
+  const runStartedAt = new Date();
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
@@ -316,6 +324,19 @@ export async function runAdapter(
         if (sweep.skipped) {
           console.warn(`[runner] ${adapter.name}: delist sweep skipped — ${sweep.reason}`);
         }
+      }
+
+      // Alerts run against first_seen_at, so a re-scrape that re-confirms
+      // hundreds of existing listings produces none — only genuinely new
+      // inventory notifies anyone.
+      if (upsertedIds.length > 0 && newCount > 0) {
+        const vertical = validListings[0]?.vertical ?? "cars";
+        await evaluateAlerts(vertical, runStartedAt, loadNewListings).catch(
+          (err: unknown) =>
+            console.warn(
+              `[runner] ${adapter.name}: alert evaluation failed — ${err instanceof Error ? err.message : String(err)}`,
+            ),
+        );
       }
 
       if (!options.skipDedupe && upsertedIds.length > 0) {

@@ -8,6 +8,7 @@
 export * from "./instagram";
 export * from "./media";
 export * from "./lifecycle";
+export * from "./alerts";
 export * from "./storage/r2";
 export * from "./ai/core";
 export { ProgressBar } from "./utils/progress";

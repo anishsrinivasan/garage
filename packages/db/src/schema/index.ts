@@ -11,4 +11,5 @@ export * from "./garages";
 export * from "./feedback";
 export * from "./listing-reports";
 export * from "./ig-sessions";
+export * from "./alerts";
 export * from "./auth";
