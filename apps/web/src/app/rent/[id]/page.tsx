@@ -38,7 +38,11 @@ import { BookmarkButton } from "@/app/components/bookmark-button";
 import { ReportListingModal } from "@/app/components/report-listing-modal";
 import { RentalCard } from "@/app/components/rental-card";
 
-export const revalidate = 600;
+/**
+ * Rendered per request. Nothing about this page is cached across requests: the
+ * database is asked every time.
+ */
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,

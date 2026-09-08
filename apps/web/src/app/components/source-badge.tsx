@@ -1,3 +1,5 @@
+"use client";
+
 import { AtSign, Globe, Tag } from "lucide-react";
 
 const PALETTE: Record<

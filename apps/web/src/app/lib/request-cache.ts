@@ -1,35 +1,26 @@
 /**
- * `unstable_cache`, except on Cloudflare Workers.
+ * Per-request memoisation, and nothing more.
  *
- * Workers forbid touching an I/O object created in another request's context.
- * `unstable_cache` revalidates in the background *after* the response has been
- * sent, and does it with the database connection the original request opened —
- * so on a stale entry the revalidation throws
+ * These queries used `unstable_cache`, which keeps a result across requests and
+ * revalidates it in the background after a response has been sent. On Workers
+ * that background pass reaches for the database connection the original request
+ * opened, which the runtime forbids:
  *
  *   Cannot perform I/O on behalf of a different request
  *
- * the promise never settles, and the runtime eventually kills the invocation
- * with "your Worker's code had hung and would never generate a response". What
- * the visitor sees is a page stuck on its loading skeleton, or the error
- * boundary on a detail page.
+ * The promise never settled, the isolate was killed for hanging, and the
+ * visitor got a page stuck on its skeleton.
  *
- * On Workers we therefore run the loader directly. These queries are already
- * memoised for the life of a single render by React's `cache`, so a page pays
- * for them once per request rather than once per call. Node keeps the real
- * `unstable_cache`, so nothing changes on Vercel.
+ * React's `cache()` deduplicates a query within a single render or invocation
+ * and forgets it afterwards, so nothing outlives the request that made it. The
+ * database is the source of truth on every request.
  */
 import { cache } from "react";
-import { unstable_cache } from "next/cache";
-
-const onWorkers =
-  typeof navigator !== "undefined" &&
-  navigator.userAgent === "Cloudflare-Workers";
 
 export function cachedQuery<T>(
   loader: () => Promise<T>,
-  keyParts: string[],
-  options: { tags?: string[]; revalidate?: number },
+  _keyParts: string[],
+  _options: { tags?: string[]; revalidate?: number },
 ): () => Promise<T> {
-  if (onWorkers) return cache(loader);
-  return unstable_cache(loader, keyParts, options);
+  return cache(loader);
 }

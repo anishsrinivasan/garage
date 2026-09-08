@@ -1,3 +1,4 @@
+import { Providers } from "./providers";
 import type { Metadata, Viewport } from "next";
 import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
@@ -152,7 +153,9 @@ export default function RootLayout({
           </div>
         </header>
 
-        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">{children}</main>
+        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+          <Providers>{children}</Providers>
+        </main>
         <FeedbackModal />
 
         <footer className="mt-24 border-t border-white/5">

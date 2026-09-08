@@ -1,3 +1,5 @@
+"use client";
+
 import { relativeAge, ageTone, type AgeTone } from "@/app/lib/format";
 import { Clock } from "lucide-react";
 

@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
 import { Fuel, Gauge, Settings2, MapPin, ImageOff, Play, Images } from "lucide-react";

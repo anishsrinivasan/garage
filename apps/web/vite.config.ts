@@ -2,8 +2,6 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import vinext from "vinext";
 import { cloudflare } from "@cloudflare/vite-plugin";
-import { kvDataAdapter } from "@vinext/cloudflare/cache/kv-data-adapter";
-import { cdnAdapter } from "@vinext/cloudflare/cache/cdn-adapter";
 
 /**
  * On Workers the database is reached through Hyperdrive, not a direct
@@ -16,6 +14,16 @@ const hyperdriveForWorkers = fileURLToPath(
   new URL("../../packages/db/src/hyperdrive.workerd.ts", import.meta.url),
 );
 
+/**
+ * The Node client keeps one connection for the life of the process; a Worker
+ * isolate serves many requests from one module instance, and reusing a socket
+ * across them is exactly what the runtime forbids. The Workers build gets a
+ * per-request client instead.
+ */
+const dbClientForWorkers = fileURLToPath(
+  new URL("../../packages/db/src/client.workerd.ts", import.meta.url),
+);
+
 export default defineConfig({
   resolve: {
     alias: [
@@ -23,12 +31,17 @@ export default defineConfig({
         find: /^(.*)\/hyperdrive\.node$/,
         replacement: hyperdriveForWorkers,
       },
+      {
+        find: /^(.*)\/client\.node$/,
+        replacement: dbClientForWorkers,
+      },
     ],
   },
   plugins: [
-    vinext({
-      cache: { data: kvDataAdapter(), cdn: cdnAdapter() },
-    }),
+    // No data or CDN cache adapter: every request goes to the database. A
+    // cached entry on Workers is refreshed behind the response using the
+    // connection the request opened, which the runtime rejects.
+    vinext(),
     cloudflare({
       viteEnvironment: {
         name: "rsc",

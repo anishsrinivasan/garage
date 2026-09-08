@@ -11,22 +11,12 @@
     "not_found_handling": "none",
     "binding": "ASSETS"
   },
-  "cache": {
-    "enabled": true
-  },
   "version_metadata": {
     "binding": "CF_VERSION_METADATA"
   },
-  "kv_namespaces": [
-    {
-      "binding": "VINEXT_KV_CACHE",
-      "id": "58fb150aaae44023b1dbeec2c84547ca"
-    }
-  ],
   // Pooling in front of PlanetScale. A Worker cannot hold a client-side pool
-  // the way the Node server does, so every isolate would otherwise open its own
-  // connection. Reading it still needs a code change in packages/db; the
-  // binding is declared here so that change is the only remaining step.
+  // the way a Node server does, so without this every isolate opens its own
+  // connection to Hyderabad. packages/db/src/client.workerd.ts reads it.
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",

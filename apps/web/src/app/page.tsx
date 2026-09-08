@@ -7,8 +7,7 @@ import {
 } from "@/app/lib/queries";
 import type { ListingFilters, SortField, SortOrder } from "@/app/lib/queries";
 import { Filters } from "@/app/components/filters";
-import { ListingCard, ListingCardSkeleton } from "@/app/components/listing-card";
-import { Pagination } from "@/app/components/pagination";
+import { CarResults } from "@/app/components/car-results";
 import { MobileFilterToggle } from "@/app/components/mobile-filter-toggle";
 import { relativeAge } from "@/app/lib/format";
 
@@ -130,90 +129,16 @@ export default async function HomePage({ searchParams }: PageProps) {
           {/* The results grid is the only thing on this page that depends on the
               filters, so it's the only thing that should suspend. The old code
               wrapped Filters and Pagination, neither of which fetches. */}
-          <Suspense key={JSON.stringify(filters)} fallback={<ResultsSkeleton search={sp.search} />}>
-            <Results filters={filters} search={sp.search} />
-          </Suspense>
+          {/* Fetched in the browser through /api/listings. The shell — hero,
+              facets, filter rail — still renders on the server. */}
+          <CarResults />
         </div>
       </div>
     </>
   );
 }
 
-async function Results({
-  filters,
-  search,
-}: {
-  filters: ListingFilters;
-  search?: string;
-}) {
-  const result = await getListings(filters);
 
-  return (
-    <>
-      <div className="mb-6 flex items-end justify-between">
-        <div>
-          <h2 className="font-display text-2xl font-bold tracking-tight text-ink-50">
-            {search ? `Results for "${search}"` : "Latest listings"}
-          </h2>
-          <p className="mt-1 text-sm text-ink-400">
-            {result.total.toLocaleString("en-IN")} car
-            {result.total !== 1 ? "s" : ""} match your filters
-          </p>
-        </div>
-      </div>
-
-      {result.listings.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-white/10 bg-white/[0.02] py-20 text-center">
-          <p className="font-display text-lg font-semibold text-ink-200">
-            No cars match those filters.
-          </p>
-          <p className="max-w-sm text-sm text-ink-500">
-            Try widening the price or year range, clearing a fuel or body type,
-            or extending the &ldquo;Listed&rdquo; window.
-          </p>
-        </div>
-      ) : (
-        <div className="grid animate-fade-in-up grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-          {result.listings.map((listing, i) => (
-            <ListingCard
-              key={listing.id}
-              listing={listing}
-              // Only the first row is above the fold; marking more than that
-              // priority would compete with itself for bandwidth.
-              priority={i < 3}
-            />
-          ))}
-        </div>
-      )}
-
-      <Suspense>
-        <Pagination
-          page={result.page}
-          totalPages={result.totalPages}
-          total={result.total}
-        />
-      </Suspense>
-    </>
-  );
-}
-
-function ResultsSkeleton({ search }: { search?: string }) {
-  return (
-    <>
-      <div className="mb-6">
-        <h2 className="font-display text-2xl font-bold tracking-tight text-ink-50">
-          {search ? `Results for "${search}"` : "Latest listings"}
-        </h2>
-        <div className="mt-2 h-4 w-40 animate-pulse rounded bg-white/[0.05]" />
-      </div>
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <ListingCardSkeleton key={i} />
-        ))}
-      </div>
-    </>
-  );
-}
 
 function Stat({
   icon,

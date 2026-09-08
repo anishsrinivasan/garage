@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
 import { BedDouble, ImageOff, MapPin, Maximize2, Sofa, Wallet } from "lucide-react";

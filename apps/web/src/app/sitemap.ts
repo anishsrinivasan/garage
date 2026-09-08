@@ -14,7 +14,10 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
  * the next regeneration succeeds, and the warnings below make a failure
  * visible in the logs instead of invisible in the output.
  */
-export const revalidate = 3600;
+// Generated per request like everything else. It was `revalidate = 3600` to
+// avoid re-querying, but an ISR entry on Workers is filled behind the response
+// using the request's own database connection, which the runtime forbids.
+export const dynamic = "force-dynamic";
 
 /**
  * The sitemap previously listed only `/`, `/garages` and the garage pages —

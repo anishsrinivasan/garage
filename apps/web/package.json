@@ -16,6 +16,7 @@
     "@classifieds/db": "workspace:*",
     "@classifieds/shared": "workspace:*",
     "@classifieds/verticals": "workspace:*",
+    "@tanstack/react-query": "^5.102.8",
     "@vinext/cloudflare": "^1.0.0-beta.7",
     "drizzle-orm": "^0.39.0",
     "lucide-react": "^1.8.0",
