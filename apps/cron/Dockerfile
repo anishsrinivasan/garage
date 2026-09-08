@@ -15,8 +15,13 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
     NODE_ENV=production
 
+# xvfb is for OLX specifically. OLX sits behind Akamai Bot Manager, which kills
+# the HTTP/2 stream for a headless client before any response — curl over h2 and
+# h1.1 and headless Chromium all fail with protocol errors, while headful
+# Chromium gets HTTP 200. Headful needs a display, and a container has none.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ffmpeg \
+      xvfb \
       ca-certificates \
       fonts-liberation \
       tzdata \
@@ -59,4 +64,6 @@ EXPOSE 3333
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3333/health || exit 1
 
-CMD ["bun", "run", "apps/cron/src/index.ts"]
+# Run under a virtual display so the OLX adapter's headful Chromium has
+# somewhere to draw. Every other adapter is unaffected by this.
+CMD ["xvfb-run", "-a", "--server-args=-screen 0 1440x900x24", "bun", "run", "apps/cron/src/index.ts"]
