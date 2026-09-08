@@ -21,14 +21,24 @@ function imageHosts(): string[] {
   if (base) {
     try {
       hosts.push(new URL(base).hostname);
+      return hosts;
     } catch {
       console.warn(`[next.config] R2_PUBLIC_BASE_URL is not a URL: ${base}`);
     }
-  } else {
-    console.warn(
-      "[next.config] R2_PUBLIC_BASE_URL unset — listing images will not render",
-    );
   }
+
+  // Fall back to the R2 development domain rather than serving a catalogue with
+  // no photographs. This value is read at BUILD time, and the web app never
+  // needed it before — the old config allowed every host on the internet — so a
+  // deployment that has not had the variable added yet would otherwise lose
+  // every listing image the moment this ships. Still far narrower than `**`,
+  // and it disappears as soon as the variable is set.
+  console.warn(
+    "[next.config] R2_PUBLIC_BASE_URL is unset — falling back to *.r2.dev for " +
+      "listing images. Set it to the bucket's public base URL; r2.dev is " +
+      "rate-limited and Cloudflare documents it as non-production.",
+  );
+  hosts.push("*.r2.dev");
   return hosts;
 }
 
