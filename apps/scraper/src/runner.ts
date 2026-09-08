@@ -2,12 +2,13 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "@preowned-cars/db";
 import { carListings, dealerSources, scrapeRuns } from "@preowned-cars/db";
 import type { ScraperAdapter, NormalizedListing } from "@preowned-cars/shared";
-import { normalizeListingFields, assessPrice } from "@preowned-cars/shared";
+import { assessPrice } from "@preowned-cars/shared";
+import { normalizeListingFields } from "@preowned-cars/verticals/cars";
 import { createHash } from "crypto";
 import { validateListing } from "./utils/validation";
-import { delistUnseen, reactivate } from "./delist";
-import { rebuildDedupeClusters } from "./dedupe";
-import { findAggregatorSourceId, recordSourceRun } from "./source-health";
+import { delistUnseen, reactivate } from "@preowned-cars/pipeline";
+import { rebuildDedupeClusters } from "./dedupe-runner";
+import { findAggregatorSourceId, recordSourceRun } from "@preowned-cars/pipeline";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 5000;

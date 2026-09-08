@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { ImagePart, TextPart } from "@ai-sdk/provider-utils";
-import { generateStructured } from "../ai/core";
+import { generateStructured } from "@preowned-cars/pipeline";
+import { CARS_EXTRACTION_PROMPT } from "./prompts";
 
 type UserPart = TextPart | ImagePart;
 
@@ -86,25 +87,11 @@ const PostResultSchema = z.object({
   isSold: z.boolean(),
 });
 
+export const CarExtractionSchema = PostResultSchema;
+
 const BatchSchema = z.object({
   posts: z.array(PostResultSchema),
 });
-
-const SYSTEM_PROMPT = `You are an expert at extracting structured car listing data from Indian Instagram dealer posts.
-
-You will be given MULTIPLE posts from a single dealer, numbered starting at 1. For each post, analyze its caption and any images that follow it, and extract car details.
-
-Rules:
-- Price is in INR. Convert lakhs notation: "4.5L" or "4.5 lakhs" = 450000
-- If a post clearly shows a specific preowned car for sale but the price is not stated (e.g. "DM for price", "price on request", only phone number shown), STILL set isCarListing=true and leave price=null. Do NOT mark it as non-listing just because price is missing.
-- Year is 4 digits (e.g., 2019)
-- kmDriven is kilometers (e.g., "45k km" = 45000)
-- Only set isCarListing=false if the post is genuinely not a car-for-sale post (meme, ad for services, generic content, dealer announcements without a specific car). Reels are valid car listings — treat them the same as photo posts.
-- Set isSold=true when the post indicates the car is SOLD (e.g. "SOLD" overlay/watermark on an image, or words like "sold", "booked", "no longer available" in the caption). Otherwise false.
-- Extract phone numbers if visible in caption or image overlays
-- Use standard make/model names ("Maruti Suzuki" not "Maruti", "Hyundai Creta" not "creta")
-
-Return one entry per input post, with "index" matching the 1-based post number.`;
 
 function imageToPart(img: LlmImage): ImagePart {
   if (img.kind === "url") {
@@ -148,7 +135,7 @@ async function extractChunk(
   const parsed = await generateStructured({
     schema: BatchSchema,
     schemaName: "InstagramPostCarListings",
-    system: SYSTEM_PROMPT,
+    system: CARS_EXTRACTION_PROMPT,
     messages: [{ role: "user", content }],
     operation: "instagram.extract_batch",
     metadata: {

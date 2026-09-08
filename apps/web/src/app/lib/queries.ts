@@ -20,12 +20,12 @@ import {
   FRESHNESS_HALF_LIFE_DAYS,
   FRESHNESS_WINDOWS,
   MIN_RECENCY_MULTIPLIER,
-  PREMIUM_MAKES,
   PRICE_TIERS,
   RANKING_WEIGHTS,
   STALE_AFTER_DAYS,
   type FreshnessBucket,
 } from "@preowned-cars/shared";
+import { PREMIUM_MAKES } from "@preowned-cars/verticals/cars";
 
 export type SortField =
   | "relevance"
@@ -107,7 +107,7 @@ const RELEVANCE_SCORE = sql`(
   * (case when coalesce((${carListings.media} -> 0 ->> 'score')::numeric, 0) >= 60 then ${RANKING_WEIGHTS.hasScoredMedia}::numeric else 1 end)
   * (case when ${carListings.price} is not null then ${RANKING_WEIGHTS.hasPrice}::numeric else 1 end)
   * (case when lower(${carListings.make}) = ANY(ARRAY[${sql.join(
-    PREMIUM_MAKES.map((m) => sql`${m}`),
+    PREMIUM_MAKES.map((m: string) => sql`${m}`),
     sql`, `,
   )}]::text[]) then ${RANKING_WEIGHTS.premiumMake}::numeric else 1 end)
   * (case when ${carListings.kmDriven} is not null

@@ -13,8 +13,8 @@ import { createInstagramAdapter } from "./adapters/instagram";
 import { createCars24Adapter } from "./adapters/cars24";
 import { createCardekhoAdapter } from "./adapters/cardekho";
 import { runAdapter, type RunOptions } from "./runner";
-import { delistStale } from "./delist";
-import { rebuildDedupeClusters } from "./dedupe";
+import { delistStale } from "@preowned-cars/pipeline";
+import { rebuildDedupeClusters } from "./dedupe-runner";
 import type { ScraperAdapter } from "@preowned-cars/shared";
 
 export type SourceName = "instagram" | "cars24" | "cardekho";

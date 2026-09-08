@@ -23,7 +23,9 @@
     "drizzle-orm": "^0.39.0",
     "playwright": "^1.50.0",
     "postgres": "^3.4.0",
-    "zod": "^4.3.6"
+    "zod": "^4.3.6",
+    "@preowned-cars/pipeline": "workspace:*",
+    "@preowned-cars/verticals": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.0"

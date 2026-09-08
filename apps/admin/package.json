@@ -19,7 +19,9 @@
     "next": "^15.2.0",
     "postgres": "^3.4.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "@preowned-cars/verticals": "workspace:*",
+    "@preowned-cars/pipeline": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

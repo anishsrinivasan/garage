@@ -9,11 +9,8 @@ import {
   dealerSources,
   listingReports,
 } from "@preowned-cars/db";
-import {
-  normalizeListingFields,
-  assessPrice,
-  parseIndianPrice,
-} from "@preowned-cars/shared";
+import { assessPrice, parseIndianPrice } from "@preowned-cars/shared";
+import { normalizeListingFields } from "@preowned-cars/verticals/cars";
 import { requireSession } from "./session";
 
 /**

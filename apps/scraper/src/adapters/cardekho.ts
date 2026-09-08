@@ -8,7 +8,7 @@ import type {
 } from "@preowned-cars/shared";
 import { CARDEKHO_CONFIG } from "./cardekho-config";
 import { parseIndianPrice } from "../utils/price";
-import { collectImageUrls, imageUrlsFromSchema } from "../utils/images";
+import { collectImageUrls, imageUrlsFromSchema } from "@preowned-cars/pipeline";
 
 type RawCardekhoListing = {
   make: string;

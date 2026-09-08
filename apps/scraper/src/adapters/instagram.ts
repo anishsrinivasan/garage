@@ -24,17 +24,18 @@ import type {
   MediaItem,
 } from "@preowned-cars/shared";
 import { INSTAGRAM_CONFIG } from "./instagram-config";
-import { extractCarDataForPostsBatch, type LlmImage } from "./instagram-llm";
-import { ProgressBar } from "../utils/progress";
-import { isR2Enabled, uploadToR2 } from "../utils/r2";
-import { extractPostMedia, extractShortcode } from "./instagram-media";
-import { extractFrames } from "../utils/video-frames";
+import { extractCarDataForPostsBatch, type LlmImage } from "@preowned-cars/verticals/cars";
+import { ProgressBar } from "@preowned-cars/pipeline";
+import { isR2Enabled, uploadToR2 } from "@preowned-cars/pipeline";
+import { extractPostMedia, extractShortcode } from "@preowned-cars/pipeline";
+import { extractFrames } from "@preowned-cars/pipeline";
 import {
   scoreImages,
   type ScorableImage,
-} from "./instagram-image-scoring";
-import { reconcilePrice, assessPrice, normalizeListingFields } from "@preowned-cars/shared";
-import { recordSourceRun } from "../source-health";
+} from "@preowned-cars/pipeline";
+import { reconcilePrice, assessPrice } from "@preowned-cars/shared";
+import { normalizeListingFields, carsVertical } from "@preowned-cars/verticals/cars";
+import { recordSourceRun } from "@preowned-cars/pipeline";
 import type { MediaSource } from "@preowned-cars/shared";
 
 async function filterRecentlyProcessedUrls(urls: string[]): Promise<Set<string>> {
@@ -526,7 +527,8 @@ async function buildOrderedMedia(
   const scores = await scoreImages(scorable, {
     handle,
     postUrl: post.postUrl,
-    carLabel: carLabel || "used car",
+    subjectLabel: carLabel || "used car",
+    systemPrompt: carsVertical.imageScoringPrompt,
   });
   const scoreByKey = new Map(scores.map((s) => [s.key, s]));
 

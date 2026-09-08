@@ -34,31 +34,6 @@ export const EXPIRE_AFTER_DAYS = 120;
 export const MIN_RECENCY_MULTIPLIER = 0.35;
 
 /**
- * Premium marques get a modest boost because they're what this audience comes
- * for — but a multiplier, not a sort key, so a fresh mass-market listing can
- * still outrank a stale premium one.
- */
-export const PREMIUM_MAKES = [
-  "bmw",
-  "mercedes-benz",
-  "audi",
-  "porsche",
-  "lexus",
-  "jaguar",
-  "land rover",
-  "volvo",
-  "mini",
-  "lamborghini",
-  "ferrari",
-  "bentley",
-  "rolls-royce",
-  "maserati",
-  "aston martin",
-  "mclaren",
-  "lotus",
-] as const;
-
-/**
  * Price bands, as a gentle multiplier rather than a sort key.
  *
  * Price used to be an ordering key above recency, which pinned the single most
@@ -78,6 +53,8 @@ export function priceTierMultiplier(price: number | null | undefined): number {
   if (price == null) return 1;
   return PRICE_TIERS.find((tier) => price >= tier.min)?.multiplier ?? 1;
 }
+
+export type RankingWeights = typeof RANKING_WEIGHTS;
 
 export const RANKING_WEIGHTS = {
   premiumMake: 1.25,

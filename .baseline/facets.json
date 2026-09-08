@@ -1,0 +1,72 @@
+{
+  "added_this_week": "58",
+  "body_pills": [
+    [
+      "SUV",
+      "150"
+    ],
+    [
+      "Sedan",
+      "110"
+    ],
+    [
+      "Hatchback",
+      "55"
+    ],
+    [
+      "MUV",
+      "16"
+    ],
+    [
+      "Coupe",
+      "6"
+    ],
+    [
+      "Convertible",
+      "2"
+    ],
+    [
+      "Pickup",
+      "1"
+    ]
+  ],
+  "fuel_pills": [
+    [
+      "Petrol",
+      "263"
+    ],
+    [
+      "Diesel",
+      "170"
+    ],
+    [
+      "Hybrid",
+      "11"
+    ],
+    [
+      "Electric",
+      "8"
+    ],
+    [
+      "CNG",
+      "1"
+    ],
+    [
+      "LPG",
+      "1"
+    ]
+  ],
+  "garages_stat": "15",
+  "live_listings": "466",
+  "total_line": "466",
+  "transmission_pills": [
+    [
+      "Automatic",
+      "207"
+    ],
+    [
+      "Manual",
+      "176"
+    ]
+  ]
+}

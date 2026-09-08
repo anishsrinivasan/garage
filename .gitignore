@@ -8,3 +8,5 @@ bun.lockb
 apps/scraper/.session/*
 apps/scraper/screenshots/*
 .next
+# Phase-0a acceptance baseline: regenerate with ./scripts-baseline.sh
+.baseline/*.html
