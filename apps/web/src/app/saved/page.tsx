@@ -1,18 +1,35 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Heart, ArrowLeft } from "lucide-react";
+import { Heart, ArrowLeft, Car, Home, LayoutGrid } from "lucide-react";
 import Link from "next/link";
+import { useQueryState, parseAsStringLiteral } from "nuqs";
 import { useBookmarks } from "@/app/lib/use-bookmarks";
+import { usePreview } from "@/app/lib/use-preview";
 import { ListingCard } from "@/app/components/listing-card";
 import { RentalCard } from "@/app/components/rental-card";
+import { ListingPreview } from "@/app/components/listing-preview";
 import { fetchSavedListings } from "./actions";
 
 type Listing = Parameters<typeof ListingCard>[0]["listing"];
 type Rental = Parameters<typeof RentalCard>[0]["listing"];
 
+const VERTICALS = ["all", "cars", "rentals"] as const;
+type Vertical = (typeof VERTICALS)[number];
+
+const TABS: { key: Vertical; label: string; icon: typeof Car }[] = [
+  { key: "all", label: "All", icon: LayoutGrid },
+  { key: "cars", label: "Cars", icon: Car },
+  { key: "rentals", label: "Rentals", icon: Home },
+];
+
 export default function SavedPage() {
   const { ids, count } = useBookmarks();
+  const { open: openPreview } = usePreview();
+  const [vertical, setVertical] = useQueryState(
+    "type",
+    parseAsStringLiteral(VERTICALS).withDefault("all").withOptions({ history: "replace" }),
+  );
   const [listings, setListings] = useState<Listing[]>([]);
   const [rentals, setRentals] = useState<Rental[]>([]);
   const [order, setOrder] = useState<string[]>([]);
@@ -35,6 +52,14 @@ export default function SavedPage() {
       setLoaded(true);
     });
   }, [ids]);
+
+  const shown = order.filter((id) =>
+    vertical === "cars"
+      ? listings.some((l) => l.id === id)
+      : vertical === "rentals"
+        ? rentals.some((r) => r.id === id)
+        : true,
+  );
 
   return (
     <div className="animate-fade-in-up">
@@ -60,6 +85,38 @@ export default function SavedPage() {
         <p className="mt-2 text-sm text-ink-400">
           {count} listing{count !== 1 ? "s" : ""} saved
         </p>
+
+        {/* Saved mixes both verticals — a car and a flat are not comparable, so
+            the list is worth splitting once there is more than one kind in it. */}
+        {loaded && listings.length > 0 && rentals.length > 0 && (
+          <div className="mt-5 flex w-fit items-center gap-1 rounded-lg border border-white/[0.06] bg-white/[0.02] p-1">
+            {TABS.map(({ key, label, icon: Icon }) => {
+              const n =
+                key === "cars"
+                  ? listings.length
+                  : key === "rentals"
+                    ? rentals.length
+                    : listings.length + rentals.length;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setVertical(key)}
+                  aria-pressed={vertical === key}
+                  className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                    vertical === key
+                      ? "bg-white/[0.07] text-ink-100"
+                      : "text-ink-500 hover:text-ink-300"
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                  <span className="font-mono text-[10px] text-ink-600">{n}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {!loaded || isPending ? (
@@ -89,14 +146,19 @@ export default function SavedPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-          {order.map((id) => {
+          {shown.map((id) => {
             const car = listings.find((l) => l.id === id);
-            if (car) return <ListingCard key={id} listing={car} />;
+            if (car)
+              return <ListingCard key={id} listing={car} onPreview={openPreview} />;
             const rental = rentals.find((r) => r.id === id);
-            return rental ? <RentalCard key={id} listing={rental} /> : null;
+            return rental ? (
+              <RentalCard key={id} listing={rental} onPreview={openPreview} />
+            ) : null;
           })}
         </div>
       )}
+
+      <ListingPreview />
     </div>
   );
 }

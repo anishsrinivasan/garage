@@ -8,8 +8,24 @@
  * dismissals are per-browser and invisible in the grid.
  */
 import { LayoutGrid, Layers } from "lucide-react";
+import { useQueryState, parseAsStringLiteral } from "nuqs";
 
 export type FeedMode = "grid" | "swipe";
+
+/**
+ * Grid or swipe, kept in the URL beside the filters.
+ *
+ * `history: "replace"` — flipping the view is not a navigation, and pushing it
+ * would make Back walk through every toggle instead of leaving the page.
+ */
+export function useFeedMode() {
+  return useQueryState(
+    "view",
+    parseAsStringLiteral(["grid", "swipe"] as const)
+      .withDefault("grid")
+      .withOptions({ history: "replace", scroll: false }),
+  );
+}
 
 export function ViewToggle({
   mode,

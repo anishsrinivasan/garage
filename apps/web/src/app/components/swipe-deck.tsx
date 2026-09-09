@@ -31,12 +31,20 @@ export function SwipeDeck<T extends { id: string }>({
   items,
   renderCard,
   onDecide,
+  onOpen,
   onExhausted,
   emptyMessage,
 }: {
   items: T[];
   renderCard: (item: T) => React.ReactNode;
   onDecide: (item: T, decision: SwipeDecision) => void;
+  /**
+   * A tap, as opposed to a drag. Handled here rather than by letting the card's
+   * own link through, because the deck takes pointer capture for the duration
+   * of a gesture and the click that follows is then delivered to this wrapper
+   * instead of the anchor inside the card — so the link never fires.
+   */
+  onOpen?: (item: T) => void;
   onExhausted?: () => void;
   emptyMessage: string;
 }) {
@@ -136,6 +144,7 @@ export function SwipeDeck<T extends { id: string }>({
       commit(dx > 0 ? "save" : "pass");
     } else {
       setDrag({ x: 0, y: 0 });
+      if (!dragged.current && current) onOpen?.(current);
     }
   }
 
@@ -199,10 +208,8 @@ export function SwipeDeck<T extends { id: string }>({
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
           onClickCapture={(e) => {
-            if (dragged.current) {
-              e.preventDefault();
-              e.stopPropagation();
-            }
+            e.preventDefault();
+            e.stopPropagation();
           }}
           onDragStart={(e) => e.preventDefault()}
           role="group"

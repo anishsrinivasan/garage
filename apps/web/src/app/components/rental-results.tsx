@@ -5,10 +5,11 @@
  * Mirror of car-results; see the note there.
  */
 import Link from "next/link";
-import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { SwipeDeck } from "./swipe-deck";
-import { ViewToggle, type FeedMode } from "./view-toggle";
+import { ListingPreview } from "./listing-preview";
+import { usePreview } from "@/app/lib/use-preview";
+import { ViewToggle, useFeedMode } from "./view-toggle";
 import { useBookmarks } from "@/app/lib/use-bookmarks";
 import { useDismissed } from "@/app/lib/use-dismissed";
 import { RentalCard, RentalCardSkeleton, type RentalCardListing } from "./rental-card";
@@ -24,8 +25,9 @@ export function RentalResults() {
   );
   const term = search.get("search") ?? undefined;
   const includeTaken = search.get("includeTaken") === "1";
-  const [mode, setMode] = useState<FeedMode>("grid");
+  const [mode, setMode] = useFeedMode();
   const { toggle, isBookmarked } = useBookmarks();
+  const { open: openPreview } = usePreview();
   const { dismiss, isDismissed, count: dismissedCount, restoreAll } = useDismissed("rentals");
 
   // Every current filter survives the toggle; only the toggle itself and the
@@ -101,7 +103,10 @@ export function RentalResults() {
         <SwipeDeck
           items={data.listings.filter((l) => !isDismissed(l.id))}
           emptyMessage="No homes match those filters."
-          renderCard={(listing) => <RentalCard listing={listing} priority />}
+          renderCard={(listing) => (
+            <RentalCard listing={listing} priority showBookmark={false} />
+          )}
+          onOpen={(listing) => openPreview(listing.id)}
           onDecide={(listing, decision) => {
             // Right saves into the same bookmarks the grid and /saved use, so a
             // swipe and a heart tap are the same action. Left is remembered
@@ -125,12 +130,19 @@ export function RentalResults() {
       ) : (
         <div className="grid animate-fade-in-up grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
           {data.listings.map((listing, i) => (
-            <RentalCard key={listing.id} listing={listing} priority={i < 3} />
+            <RentalCard
+              key={listing.id}
+              listing={listing}
+              priority={i < 3}
+              onPreview={openPreview}
+            />
           ))}
         </div>
       )}
 
       <Pagination page={data.page} totalPages={data.totalPages} total={data.total} />
+
+      <ListingPreview />
     </>
   );
 }

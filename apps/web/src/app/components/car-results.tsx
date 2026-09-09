@@ -8,11 +8,12 @@
  * gives the visitor a retry instead of a dead page, and the shell renders
  * immediately either way.
  */
-import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ListingCard, ListingCardSkeleton, type CardListing } from "./listing-card";
 import { SwipeDeck } from "./swipe-deck";
-import { ViewToggle, type FeedMode } from "./view-toggle";
+import { ListingPreview } from "./listing-preview";
+import { usePreview } from "@/app/lib/use-preview";
+import { ViewToggle, useFeedMode } from "./view-toggle";
 import { useBookmarks } from "@/app/lib/use-bookmarks";
 import { useDismissed } from "@/app/lib/use-dismissed";
 import { Pagination } from "./pagination";
@@ -26,8 +27,9 @@ export function CarResults() {
     queryString,
   );
   const term = search.get("search") ?? undefined;
-  const [mode, setMode] = useState<FeedMode>("grid");
+  const [mode, setMode] = useFeedMode();
   const { toggle, isBookmarked } = useBookmarks();
+  const { open: openPreview } = usePreview();
   const { dismiss, isDismissed, count: dismissedCount, restoreAll } = useDismissed("cars");
 
   if (isPending) return <ResultsSkeleton search={term} />;
@@ -73,7 +75,10 @@ export function CarResults() {
         <SwipeDeck
           items={data.listings.filter((l) => !isDismissed(l.id))}
           emptyMessage="No cars match those filters."
-          renderCard={(listing) => <ListingCard listing={listing} priority />}
+          renderCard={(listing) => (
+            <ListingCard listing={listing} priority showBookmark={false} />
+          )}
+          onOpen={(listing) => openPreview(listing.id)}
           onDecide={(listing, decision) => {
             // Right saves into the same bookmarks the grid hearts and /saved
             // use; left is remembered per-browser so a passed car does not come
@@ -97,12 +102,19 @@ export function CarResults() {
       ) : (
         <div className="grid animate-fade-in-up grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
           {data.listings.map((listing, i) => (
-            <ListingCard key={listing.id} listing={listing} priority={i < 3} />
+            <ListingCard
+              key={listing.id}
+              listing={listing}
+              priority={i < 3}
+              onPreview={openPreview}
+            />
           ))}
         </div>
       )}
 
       <Pagination page={data.page} totalPages={data.totalPages} total={data.total} />
+
+      <ListingPreview />
     </>
   );
 }

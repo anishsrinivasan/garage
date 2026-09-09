@@ -42,9 +42,19 @@ const CARD_IMAGE_SIZES =
 export function ListingCard({
   listing,
   priority = false,
+  onPreview,
+  showBookmark = true,
 }: {
   listing: CardListing;
   priority?: boolean;
+  /**
+   * Intercept the click and open the preview dialog instead of navigating.
+   * The href stays put either way, so middle-click, right-click and crawlers
+   * still reach the dedicated page.
+   */
+  onPreview?: (id: string) => void;
+  /** The swipe deck has its own save button, so the card's would be a duplicate. */
+  showBookmark?: boolean;
 }) {
   const hero = pickHeroImage(listing.media, listing.heroMediaUrl);
   const photos = imageCount(listing.media);
@@ -58,6 +68,13 @@ export function ListingCard({
   return (
     <Link
       href={`/listings/${listing.id}`}
+      onClick={(e) => {
+        // Let the browser have the modified clicks — new tab, new window,
+        // download — and only take over the plain one.
+        if (!onPreview || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        onPreview(listing.id);
+      }}
       className={`group relative block overflow-hidden rounded-2xl border border-white/[0.06] bg-ink-850/40 shadow-card backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:border-white/[0.14] hover:shadow-card-hover ${
         isSold ? "opacity-70" : ""
       }`}
@@ -89,9 +106,11 @@ export function ListingCard({
 
         {/* Always visible on touch: the bookmark used to be opacity-0 until
             group-hover, which made it unreachable on a phone. */}
-        <div className="absolute right-3 top-3 z-10 opacity-100 transition-opacity duration-200 md:opacity-0 md:group-hover:opacity-100 md:[&:has([data-bookmarked])]:opacity-100">
-          <BookmarkButton listingId={listing.id} />
-        </div>
+        {showBookmark && (
+          <div className="absolute right-3 top-3 z-10 opacity-100 transition-opacity duration-200 md:opacity-0 md:group-hover:opacity-100 md:[&:has([data-bookmarked])]:opacity-100">
+            <BookmarkButton listingId={listing.id} />
+          </div>
+        )}
 
         <div className="absolute left-3 top-3 flex flex-wrap items-center gap-1.5">
           <SourceBadge platform={listing.sourcePlatform} />
