@@ -10,8 +10,25 @@
  * inside a freshness band.
  */
 
-/** Days for the recency multiplier to decay halfway to its floor. */
-export const FRESHNESS_HALF_LIFE_DAYS = 30;
+/**
+ * Days for a car's recency multiplier to decay halfway to its floor.
+ *
+ * Was 30, which put the halfway point outside the window anyone actually
+ * browses — a fortnight-old listing scored 0.76 against a same-day 1.00, a gap
+ * the media and price multipliers erased on their own. At 14 the curve bites
+ * inside the period where a preowned car is still plausibly available.
+ */
+export const FRESHNESS_HALF_LIFE_DAYS = 14;
+
+/**
+ * The same knob for rentals, which go off faster than cars do.
+ *
+ * A flat listed three weeks ago is usually taken; a car listed three weeks ago
+ * usually is not. Lived next to the cars value rather than in the rentals query
+ * so the two can be compared, and so one cannot be tuned in ignorance of the
+ * other.
+ */
+export const RENTALS_HALF_LIFE_DAYS = 7;
 
 /** Beyond this, a listing is assumed gone unless a scrape re-confirms it. */
 export const STALE_AFTER_DAYS = 45;
@@ -22,16 +39,22 @@ export const EXPIRE_AFTER_DAYS = 120;
 /**
  * Floor for the recency multiplier.
  *
- * This is the knob that decides how much "recent" beats "good". At 0.05 an
- * unbounded exponential made age the only thing that mattered: a same-day batch
- * of ₹3 lakh hatchbacks buried every premium listing more than a few weeks old,
- * because everything older had collapsed to the floor and was competing on a
- * hundredth of the scale. At 0.35 the range is compressed enough that a
- * well-photographed premium car from last month can still outrank a bare
- * mass-market listing posted this morning — which is the intended mix of
- * price and date, rather than a pure date sort wearing a score's clothing.
+ * This is the knob that decides how much "recent" beats "good", and it has to
+ * be read against the quality multipliers below: hasMedia, hasPrice and
+ * hasScoredMedia compound to about 2.2x. At a floor of 0.35 the whole recency
+ * range was only 2.9x, so a fully-specced listing from any date beat a thinner
+ * one from today — the feed sorted by completeness with a recency tint.
+ *
+ * At 0.15 the range is 6.7x and outruns that stack, which is the intent: this
+ * index's whole claim is that its listings are current. A same-day listing now
+ * leads a month-old one even when the older one is better documented.
+ *
+ * Not zero, and not the 0.05 this once had. That made age the only thing that
+ * mattered: everything past a few weeks collapsed onto the floor and competed
+ * on a hundredth of the scale, so a same-day batch of near-identical
+ * hatchbacks took the entire front page.
  */
-export const MIN_RECENCY_MULTIPLIER = 0.35;
+export const MIN_RECENCY_MULTIPLIER = 0.15;
 
 /**
  * Price bands, as a gentle multiplier rather than a sort key.

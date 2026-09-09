@@ -6,6 +6,7 @@ import {
   FRESHNESS_WINDOWS,
   MIN_RECENCY_MULTIPLIER,
   RANKING_WEIGHTS,
+  RENTALS_HALF_LIFE_DAYS,
   STALE_AFTER_DAYS,
 } from "@classifieds/shared";
 
@@ -22,7 +23,6 @@ import {
  * ago is usually gone.
  */
 
-const RENTALS_HALF_LIFE_DAYS = 7;
 const PAGE_SIZE = 24;
 
 export type RentalSortField = "relevance" | "listedAt" | "rent" | "area";
