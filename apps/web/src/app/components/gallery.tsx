@@ -16,9 +16,16 @@ import type { MediaItem } from "@/app/lib/media";
 export function Gallery({
   media,
   alt,
+  enableLightbox = true,
 }: {
   media: MediaItem[];
   alt: string;
+  /**
+   * Off inside the preview dialog. The dialog is already the enlarged view, so
+   * a lightbox on top of it is a second overlay competing for the same Escape
+   * key — press it once and both would close.
+   */
+  enableLightbox?: boolean;
 }) {
   const [index, setIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -66,7 +73,7 @@ export function Gallery({
         <div className="group relative aspect-[3/2] overflow-hidden rounded-2xl border border-white/5 bg-ink-900">
           <MediaFrame item={active} alt={alt} primary />
 
-          {active.type === "image" && (
+          {active.type === "image" && enableLightbox && (
             <button
               type="button"
               onClick={() => setLightboxOpen(true)}

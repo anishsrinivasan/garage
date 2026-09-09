@@ -53,6 +53,7 @@ export function parseRentalFilters(sp: Params): RentalFilters {
     furnishing: sp.furnishing,
     propertyType: sp.propertyType,
     tenantPreference: sp.tenantPreference,
+    gatedCommunity: sp.gated === "1",
     locality: sp.locality,
     freshness: sp.freshness,
     includeStale: sp.includeStale === "1",

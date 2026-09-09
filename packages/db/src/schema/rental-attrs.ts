@@ -33,6 +33,14 @@ export const listingRentalAttrs = appSchema.table(
     maintenance: integer("maintenance"),
     maintenanceIncluded: boolean("maintenance_included"),
 
+    /**
+     * Tri-state on purpose. `false` means a caption said it is not a gated
+     * community; null means it did not say. Collapsing "not mentioned" into
+     * "not gated" would let the filter's inverse quietly assert something no
+     * listing ever claimed.
+     */
+    gatedCommunity: boolean("gated_community"),
+
     furnishing: text("furnishing"),
     tenantPreference: text("tenant_preference"),
     parking: text("parking"),
@@ -44,6 +52,7 @@ export const listingRentalAttrs = appSchema.table(
     idxBhk: index("idx_rental_attrs_bhk").on(table.bhk),
     idxFurnishing: index("idx_rental_attrs_furnishing").on(table.furnishing),
     idxPropertyType: index("idx_rental_attrs_property_type").on(table.propertyType),
+    idxGated: index("idx_rental_attrs_gated").on(table.gatedCommunity),
     idxBhkRent: index("idx_rental_attrs_bhk_rent").on(table.bhk, table.rent),
   }),
 );

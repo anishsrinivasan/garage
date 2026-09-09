@@ -12,10 +12,16 @@
  *
  * Which listing is open lives in the URL (`?preview=<id>`), so the dialog
  * survives reload, closes on Back, and can be linked to.
+ *
+ * Rendered through a portal into <body>. `position: fixed` is relative to the
+ * viewport only while no ancestor establishes a containing block, and any
+ * ancestor with a transform does — the saved page wraps its content in
+ * `animate-fade-in-up`, which was enough to pin the overlay inside the page
+ * body and clip it against the footer.
  */
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
-import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
 import {
   X,
@@ -28,11 +34,12 @@ import {
   Ruler,
   Sofa,
   Wallet,
-  ImageOff,
+  ShieldCheck,
   ArrowUpRight,
 } from "lucide-react";
 import { usePreview } from "@/app/lib/use-preview";
 import { orderedGallery, type MediaItem } from "@/app/lib/media";
+import { Gallery } from "./gallery";
 import { formatPrice, formatKm, enumLabel } from "@/app/lib/format";
 import { formatRent, formatLumpSum, rentalTitle, rentalLabel } from "@/app/lib/rental-format";
 import { SourceBadge } from "./source-badge";
@@ -84,8 +91,9 @@ export function ListingPreview() {
   }, [previewId, data]);
 
   if (!previewId) return null;
+  if (typeof document === "undefined") return null;
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-ink-950/80 p-0 backdrop-blur-sm sm:items-center sm:p-6"
       onClick={close}
@@ -125,7 +133,8 @@ export function ListingPreview() {
           <RentalPreview listing={data.listing} onClose={close} />
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -144,69 +153,19 @@ function PreviewSkeleton() {
   );
 }
 
-/** Hero plus a strip you can click through — enough to judge a listing. */
+/**
+ * The detail page's gallery, reused verbatim.
+ *
+ * The dialog first rendered every item as an <Image>, which drew a black
+ * rectangle wherever a listing's last item was a reel — Instagram rentals often
+ * end on one. Gallery already plays video, shows the poster frame in the strip
+ * and marks it with a play badge, so the preview and the detail page now behave
+ * identically rather than diverging as either changes.
+ */
 function PreviewMedia({ media, alt }: { media: MediaItem[]; alt: string }) {
-  const [index, setIndex] = useState(0);
-  const hero = media[index] ?? media[0];
-
-  // Arrow keys move through the photos while the dialog is open. Escape is
-  // handled a level up, on the dialog itself.
-  useEffect(() => {
-    if (media.length < 2) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "ArrowRight") setIndex((i) => (i + 1) % media.length);
-      else if (e.key === "ArrowLeft") setIndex((i) => (i - 1 + media.length) % media.length);
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [media.length]);
-
-  if (!hero) {
-    return (
-      <div className="flex aspect-[16/10] items-center justify-center bg-ink-950 text-ink-700">
-        <ImageOff className="h-8 w-8" strokeWidth={1.3} />
-      </div>
-    );
-  }
-
   return (
-    <div>
-      <div className="relative aspect-[16/10] w-full overflow-hidden bg-ink-950">
-        <Image
-          key={hero.url}
-          src={hero.url}
-          alt={alt}
-          fill
-          sizes="(min-width: 768px) 768px, 100vw"
-          priority
-          className="object-cover"
-        />
-        {media.length > 1 && (
-          <span className="absolute bottom-3 right-3 rounded-md bg-ink-950/70 px-2 py-1 font-mono text-[10px] tracking-wider text-ink-300 backdrop-blur">
-            {index + 1} / {media.length}
-          </span>
-        )}
-      </div>
-      {media.length > 1 && (
-        <div className="flex gap-2 overflow-x-auto px-4 pt-3">
-          {media.map((item, i) => (
-            <button
-              key={item.url}
-              type="button"
-              onClick={() => setIndex(i)}
-              aria-label={`Photo ${i + 1}`}
-              aria-current={i === index}
-              className={`relative h-16 w-24 shrink-0 overflow-hidden rounded-lg border bg-ink-950 transition ${
-                i === index
-                  ? "border-accent/70 opacity-100"
-                  : "border-white/[0.06] opacity-60 hover:opacity-100"
-              }`}
-            >
-              <Image src={item.url} alt="" fill sizes="96px" className="object-cover" />
-            </button>
-          ))}
-        </div>
-      )}
+    <div className="p-4 pb-0 sm:p-5 sm:pb-0">
+      <Gallery media={media} alt={alt} enableLightbox={false} />
     </div>
   );
 }
@@ -380,6 +339,7 @@ function RentalPreview({
     listedAt?: string | null;
     firstSeenAt?: string | null;
     orgName?: string | null;
+    gatedCommunity?: boolean | null;
   };
 
   const title = rentalTitle(l);
@@ -391,9 +351,17 @@ function RentalPreview({
     <>
       <PreviewMedia key={l.id} media={media} alt={title} />
       <div className="p-6">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <SourceBadge platform={l.sourcePlatform} />
           <AgeChip date={l.listedAt ?? l.firstSeenAt ?? null} />
+          {/* Shown only when true. The column is null for most listings, and a
+              "not gated" badge would assert something no caption ever said. */}
+          {l.gatedCommunity === true && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-300 ring-1 ring-inset ring-emerald-500/25">
+              <ShieldCheck className="h-3 w-3" />
+              Gated
+            </span>
+          )}
         </div>
 
         <div className="mt-3 flex flex-wrap items-start justify-between gap-3">

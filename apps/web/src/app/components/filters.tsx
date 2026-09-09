@@ -7,7 +7,10 @@ import type { FilterOptions } from "@/app/lib/queries";
 import { enumLabel } from "@/app/lib/format";
 
 /** Keys that are navigation state, not user-chosen filters. */
-const NON_FILTER_KEYS = ["sortBy", "sortOrder", "page"];
+// View state, not filtering. `view` and `preview` arrived with the swipe deck
+// and the preview dialog; leaving them out of this list made the "refine"
+// badge claim two active filters the moment someone opened a listing.
+const NON_FILTER_KEYS = ["sortBy", "sortOrder", "page", "view", "preview"];
 
 const SEARCH_DEBOUNCE_MS = 350;
 

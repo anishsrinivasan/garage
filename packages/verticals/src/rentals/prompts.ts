@@ -33,6 +33,12 @@ PROPERTY:
 - availableFrom as YYYY-MM-DD when a date is given, else null. "immediate" is null.
 - amenities: short lowercase tags for what is actually mentioned — lift, power
   backup, gym, pool, security, water, park, clubhouse. Do not invent any.
+- gatedCommunity: true when the listing says the home is in a gated community,
+  gated complex or gated enclave — "gated community", "inside a gated
+  compound", "secure gated society". false only if it says the opposite, e.g.
+  "independent house, not a gated community". null when it is not mentioned,
+  which is the common case. A compound wall, a security guard or CCTV alone is
+  not a gated community; say null for those.
 
 LOCATION:
 - locationText: copy the location EXACTLY as written, including landmarks and

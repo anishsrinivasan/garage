@@ -89,7 +89,12 @@ export function RentalCard({
               // Interiors read better centred than cars do — no roofline to protect.
               className="object-cover transition-transform duration-[600ms] ease-out group-hover:scale-[1.04]"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-ink-950/85 via-ink-950/10 to-ink-950/20" />
+            {/* Monotonic on purpose. This was 85% at the bottom, 10% in the
+                middle and 20% at the top — the middle lighter than the top —
+                and the jump between stops drew a hard horizontal band across
+                every photo with an even background. Darkening now only falls,
+                and is spent in the bottom third where the title sits. */}
+            <div className="absolute inset-0 bg-gradient-to-t from-ink-950/95 from-0% via-ink-950/45 via-30% to-transparent to-72%" />
           </>
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-ink-500">

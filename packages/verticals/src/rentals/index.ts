@@ -29,6 +29,7 @@ export type RentalAttrs = {
   deposit: number | null;
   maintenance: number | null;
   maintenanceIncluded: boolean | null;
+  gatedCommunity: boolean | null;
   furnishing: string | null;
   tenantPreference: string | null;
   parking: string | null;

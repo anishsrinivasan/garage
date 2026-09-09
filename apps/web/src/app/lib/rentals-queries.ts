@@ -34,6 +34,12 @@ export interface RentalFilters {
   bhk?: number[];
   furnishing?: string;
   propertyType?: string;
+  /**
+   * Opt-in only. `true` narrows to listings that say they are in a gated
+   * community; there is no "not gated" filter, because a caption that never
+   * mentions it has not claimed the opposite.
+   */
+  gatedCommunity?: boolean;
   tenantPreference?: string;
   locality?: string;
   minArea?: number;
@@ -137,6 +143,9 @@ function buildConditions(filters: RentalFilters): SQL[] {
   }
 
   if (filters.furnishing) conditions.push(eq(listingRentalAttrs.furnishing, filters.furnishing));
+  if (filters.gatedCommunity) {
+    conditions.push(eq(listingRentalAttrs.gatedCommunity, true));
+  }
   if (filters.propertyType) {
     conditions.push(eq(listingRentalAttrs.propertyType, filters.propertyType));
   }
@@ -187,6 +196,7 @@ const SELECTION = {
   maintenance: listingRentalAttrs.maintenance,
   maintenanceIncluded: listingRentalAttrs.maintenanceIncluded,
   furnishing: listingRentalAttrs.furnishing,
+  gatedCommunity: listingRentalAttrs.gatedCommunity,
   tenantPreference: listingRentalAttrs.tenantPreference,
   parking: listingRentalAttrs.parking,
   availableFrom: listingRentalAttrs.availableFrom,
@@ -321,6 +331,8 @@ export type RentalFacets = {
   furnishing: Array<{ value: string; count: number }>;
   propertyType: Array<{ value: string; count: number }>;
   tenantPreference: Array<{ value: string; count: number }>;
+  /** How many live rentals say they are in a gated community. */
+  gatedCommunity: number;
   localities: Array<{ id: string; name: string; count: number }>;
   rentRange: { min: number; max: number };
   areaRange: { min: number; max: number };
@@ -347,8 +359,16 @@ async function loadRentalFacets(): Promise<RentalFacets> {
       .map((r) => ({ value: r.value, count: r.total }));
   };
 
-  const [bhkRows, furnishing, propertyType, tenantPreference, localityRows, [ranges], [totals]] =
-    await Promise.all([
+  const [
+    bhkRows,
+    furnishing,
+    propertyType,
+    tenantPreference,
+    [gated],
+    localityRows,
+    [ranges],
+    [totals],
+  ] = await Promise.all([
       db
         .select({ value: listingRentalAttrs.bhk, total: count() })
         .from(listings)
@@ -359,6 +379,11 @@ async function loadRentalFacets(): Promise<RentalFacets> {
       attrFacet(listingRentalAttrs.furnishing),
       attrFacet(listingRentalAttrs.propertyType),
       attrFacet(listingRentalAttrs.tenantPreference),
+      db
+        .select({ total: count() })
+        .from(listings)
+        .innerJoin(listingRentalAttrs, eq(listingRentalAttrs.listingId, listings.id))
+        .where(and(live, eq(listingRentalAttrs.gatedCommunity, true))),
       db
         .select({ id: localities.id, name: localities.name, total: count() })
         .from(listings)
@@ -386,6 +411,7 @@ async function loadRentalFacets(): Promise<RentalFacets> {
     furnishing,
     propertyType,
     tenantPreference,
+    gatedCommunity: gated?.total ?? 0,
     localities: localityRows.map((l) => ({ id: l.id, name: l.name, count: l.total })),
     rentRange: { min: ranges?.minRent ?? 0, max: ranges?.maxRent ?? 0 },
     areaRange: { min: ranges?.minArea ?? 0, max: ranges?.maxArea ?? 0 },

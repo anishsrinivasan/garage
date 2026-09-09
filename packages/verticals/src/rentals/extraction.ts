@@ -31,6 +31,8 @@ export const RentalPostSchema = z.object({
     .enum(["family", "bachelors", "bachelors_male", "bachelors_female", "company", "any"])
     .nullable(),
   parking: z.enum(["none", "bike", "car", "both"]).nullable(),
+  /** Null when the caption is silent, which is most of them. */
+  gatedCommunity: z.boolean().nullable(),
   availableFrom: z.string().nullable(),
   amenities: z.array(z.string()).default([]),
 

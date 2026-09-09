@@ -142,6 +142,12 @@ const findRentalsSchema = {
   max_rent: z.number().optional().describe("Maximum monthly rent in rupees"),
   bhk: z.number().optional().describe("Bedroom count. 4 means four or more."),
   furnishing: z.enum(["unfurnished", "semi_furnished", "fully_furnished"]).optional(),
+  gated_community: z
+    .boolean()
+    .optional()
+    .describe(
+      "Only homes stated to be in a gated community. There is no way to ask for the opposite: a listing that never mentions it has not claimed to be ungated, so false is treated as no constraint rather than as a filter.",
+    ),
   posted_within_days: z
     .number()
     .optional()
@@ -163,6 +169,7 @@ type FindRentalsArgs = {
   max_rent?: number;
   bhk?: number;
   furnishing?: "unfurnished" | "semi_furnished" | "fully_furnished";
+  gated_community?: boolean;
   posted_within_days?: number;
   first_seen_after?: string;
   limit: number;
@@ -198,6 +205,9 @@ s.tool(
     if (args.furnishing) {
       conditions.push(eq(listingRentalAttrs.furnishing, args.furnishing));
     }
+    if (args.gated_community) {
+      conditions.push(eq(listingRentalAttrs.gatedCommunity, true));
+    }
     if (args.posted_within_days != null) {
       conditions.push(
         sql`coalesce(${listings.listedAt}, ${listings.firstSeenAt}) >= now() - ${`${args.posted_within_days} days`}::interval`,
@@ -230,6 +240,7 @@ s.tool(
         deposit: listingRentalAttrs.deposit,
         area: listingRentalAttrs.carpetAreaSqft,
         furnishing: listingRentalAttrs.furnishing,
+        gatedCommunity: listingRentalAttrs.gatedCommunity,
         tenantPreference: listingRentalAttrs.tenantPreference,
       })
       .from(listings)

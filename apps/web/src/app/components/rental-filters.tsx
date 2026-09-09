@@ -2,11 +2,14 @@
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { Loader2, Search, X } from "lucide-react";
+import { Loader2, Search, ShieldCheck, X } from "lucide-react";
 import type { RentalFacets } from "@/app/lib/rentals-queries";
 import { rentalLabel, formatRent } from "@/app/lib/rental-format";
 
-const NON_FILTER_KEYS = ["sortBy", "sortOrder", "page"];
+// View state, not filtering. `view` and `preview` arrived with the swipe deck
+// and the preview dialog; leaving them out of this list made the "refine"
+// badge claim two active filters the moment someone opened a listing.
+const NON_FILTER_KEYS = ["sortBy", "sortOrder", "page", "view", "preview"];
 const DEBOUNCE_MS = 350;
 
 /**
@@ -169,6 +172,36 @@ export function RentalFilters({ facets }: { facets: RentalFacets }) {
         current={current("tenantPreference")}
         onChange={update}
       />
+
+      {/* A toggle, not a two-way choice. A caption that never mentions a gated
+          community has not said it is not one, so there is nothing honest to
+          put behind an "Open" option — only "gated only" or no opinion. */}
+      {facets.gatedCommunity > 0 && (
+        <div>
+          <label className="field-label" htmlFor="gated">
+            Community
+          </label>
+          <button
+            id="gated"
+            type="button"
+            onClick={() => update("gated", current("gated") === "1" ? "" : "1")}
+            aria-pressed={current("gated") === "1"}
+            className={`mt-2 inline-flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition ${
+              current("gated") === "1"
+                ? "border-accent/30 bg-accent/10 text-accent"
+                : "border-white/[0.06] bg-white/[0.02] text-ink-300 hover:border-white/[0.12] hover:text-ink-100"
+            }`}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Gated community
+            </span>
+            <span className="font-mono text-[10px] opacity-60">
+              {facets.gatedCommunity}
+            </span>
+          </button>
+        </div>
+      )}
 
       <PillGroup
         label="Listed"
