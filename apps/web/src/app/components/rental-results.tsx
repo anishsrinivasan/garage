@@ -5,7 +5,12 @@
  * Mirror of car-results; see the note there.
  */
 import Link from "next/link";
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { SwipeDeck } from "./swipe-deck";
+import { ViewToggle, type FeedMode } from "./view-toggle";
+import { useBookmarks } from "@/app/lib/use-bookmarks";
+import { useDismissed } from "@/app/lib/use-dismissed";
 import { RentalCard, RentalCardSkeleton, type RentalCardListing } from "./rental-card";
 import { Pagination } from "./pagination";
 import { useFeed } from "@/app/lib/use-feed";
@@ -19,6 +24,9 @@ export function RentalResults() {
   );
   const term = search.get("search") ?? undefined;
   const includeTaken = search.get("includeTaken") === "1";
+  const [mode, setMode] = useState<FeedMode>("grid");
+  const { toggle, isBookmarked } = useBookmarks();
+  const { dismiss, isDismissed, count: dismissedCount, restoreAll } = useDismissed("rentals");
 
   // Every current filter survives the toggle; only the toggle itself and the
   // page cursor are dropped, since including taken flats renumbers the pages.
@@ -82,7 +90,30 @@ export function RentalResults() {
         )}
       </div>
 
-      {data.listings.length === 0 ? (
+      <ViewToggle
+        mode={mode}
+        onChange={setMode}
+        dismissedCount={dismissedCount}
+        onRestore={restoreAll}
+      />
+
+      {mode === "swipe" ? (
+        <SwipeDeck
+          items={data.listings.filter((l) => !isDismissed(l.id))}
+          emptyMessage="No homes match those filters."
+          renderCard={(listing) => <RentalCard listing={listing} priority />}
+          onDecide={(listing, decision) => {
+            // Right saves into the same bookmarks the grid and /saved use, so a
+            // swipe and a heart tap are the same action. Left is remembered
+            // per-browser so the card does not come back on the next visit.
+            if (decision === "save") {
+              if (!isBookmarked(listing.id)) toggle(listing.id);
+            } else {
+              dismiss(listing.id);
+            }
+          }}
+        />
+      ) : data.listings.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-white/10 bg-white/[0.02] py-20 text-center">
           <p className="font-display text-lg font-semibold text-ink-200">
             No homes match those filters.

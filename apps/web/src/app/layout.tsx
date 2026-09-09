@@ -4,6 +4,7 @@ import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
 import { Gauge } from "lucide-react";
 import { SavedNavLink } from "@/app/components/saved-nav-link";
+import { CityPicker } from "@/app/components/city-picker";
 import { MobileMenu } from "@/app/components/mobile-menu";
 import { FeedbackModal } from "@/app/components/feedback-modal";
 import "./globals.css";
@@ -148,6 +149,9 @@ export default function RootLayout({
             </nav>
 
             <div className="flex items-center gap-2">
+              {/* Visible on every page: the first thing someone wants to know
+                  is whether their city is covered. */}
+              <CityPicker />
               <MobileMenu />
             </div>
           </div>

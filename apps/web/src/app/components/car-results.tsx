@@ -8,8 +8,13 @@
  * gives the visitor a retry instead of a dead page, and the shell renders
  * immediately either way.
  */
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ListingCard, ListingCardSkeleton, type CardListing } from "./listing-card";
+import { SwipeDeck } from "./swipe-deck";
+import { ViewToggle, type FeedMode } from "./view-toggle";
+import { useBookmarks } from "@/app/lib/use-bookmarks";
+import { useDismissed } from "@/app/lib/use-dismissed";
 import { Pagination } from "./pagination";
 import { useFeed } from "@/app/lib/use-feed";
 
@@ -21,6 +26,9 @@ export function CarResults() {
     queryString,
   );
   const term = search.get("search") ?? undefined;
+  const [mode, setMode] = useState<FeedMode>("grid");
+  const { toggle, isBookmarked } = useBookmarks();
+  const { dismiss, isDismissed, count: dismissedCount, restoreAll } = useDismissed("cars");
 
   if (isPending) return <ResultsSkeleton search={term} />;
 
@@ -54,7 +62,30 @@ export function CarResults() {
         </p>
       </div>
 
-      {data.listings.length === 0 ? (
+      <ViewToggle
+        mode={mode}
+        onChange={setMode}
+        dismissedCount={dismissedCount}
+        onRestore={restoreAll}
+      />
+
+      {mode === "swipe" ? (
+        <SwipeDeck
+          items={data.listings.filter((l) => !isDismissed(l.id))}
+          emptyMessage="No cars match those filters."
+          renderCard={(listing) => <ListingCard listing={listing} priority />}
+          onDecide={(listing, decision) => {
+            // Right saves into the same bookmarks the grid hearts and /saved
+            // use; left is remembered per-browser so a passed car does not come
+            // back on the next visit.
+            if (decision === "save") {
+              if (!isBookmarked(listing.id)) toggle(listing.id);
+            } else {
+              dismiss(listing.id);
+            }
+          }}
+        />
+      ) : data.listings.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-white/10 bg-white/[0.02] py-20 text-center">
           <p className="font-display text-lg font-semibold text-ink-200">
             No cars match those filters.
