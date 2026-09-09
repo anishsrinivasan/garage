@@ -17,7 +17,8 @@ import { eq } from "drizzle-orm";
 import { db, listings } from "@classifieds/db";
 import { fullSizeOlxImage } from "./adapters/olx-cards";
 
-type MediaItem = { url?: string } & Record<string, unknown>;
+/** The media column's own element type, so a rewrite type-checks as a write. */
+type MediaItem = NonNullable<typeof listings.$inferSelect.media>[number];
 
 const APPLY = process.argv.includes("--apply");
 
@@ -35,14 +36,14 @@ async function main() {
   let urlsRewritten = 0;
 
   for (const row of rows) {
-    const media = (row.media ?? []) as MediaItem[];
+    const media: MediaItem[] = row.media ?? [];
     const touchesOlx =
       media.some((m) => typeof m.url === "string" && m.url.includes("apollo.olx.in")) ||
       (row.heroMediaUrl?.includes("apollo.olx.in") ?? false);
     if (!touchesOlx) continue;
     scanned += 1;
 
-    const nextMedia = media.map((item) => {
+    const nextMedia: MediaItem[] = media.map((item) => {
       if (typeof item.url !== "string" || !item.url.includes("apollo.olx.in")) return item;
       const url = fullSizeOlxImage(item.url);
       if (url !== item.url) urlsRewritten += 1;
