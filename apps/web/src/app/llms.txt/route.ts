@@ -11,11 +11,9 @@
  */
 import { db, listings } from "@classifieds/db";
 import { and, count, eq, sql } from "drizzle-orm";
+import { SITE_URL } from "@/app/lib/site";
 
 export const dynamic = "force-dynamic";
-
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
 async function catalogue() {
   const rows = await db

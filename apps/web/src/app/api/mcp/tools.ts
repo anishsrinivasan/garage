@@ -24,6 +24,7 @@ import {
   garages,
 } from "@classifieds/db";
 import { relativeAge, STALE_AFTER_DAYS } from "@classifieds/shared";
+import { SITE_URL } from "@/app/lib/site";
 
 /**
  * The listings index, as MCP tools.
@@ -52,8 +53,6 @@ export function registerTools(server: {
       );
     },
   };
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://localhost:3000";
 
 /**
  * Parses a polling cursor. Returns null for anything unparseable rather than

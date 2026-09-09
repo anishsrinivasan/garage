@@ -8,6 +8,7 @@ import { CityPicker } from "@/app/components/city-picker";
 import { MobileMenu } from "@/app/components/mobile-menu";
 import { FeedbackModal } from "@/app/components/feedback-modal";
 import "./globals.css";
+import { SITE_URL } from "@/app/lib/site";
 
 const sans = Inter({
   subsets: ["latin"],
@@ -25,8 +26,6 @@ const mono = JetBrains_Mono({
   display: "swap",
 });
 
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 const TITLE = "Classifieds — Preowned Cars, Curated";
 const DESCRIPTION =
   "A curated, real-time dashboard of preowned car listings across India — from Cars24, CarDekho, OLX, and trusted Instagram dealers. Deduplicated, normalized, searchable.";
