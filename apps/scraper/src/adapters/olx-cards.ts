@@ -78,13 +78,35 @@ export async function extractOlxCards(page: Page): Promise<OlxListingCard[]> {
           (l) => l !== price && l !== meta && l !== location && !isDate(l),
         ) ?? "";
 
-      const img = card.querySelector("img");
+      // OLX lazy-loads card images, so `src` is often a placeholder or absent
+      // until the card scrolls into view; the real URL sits in data-src or the
+      // first candidate of srcset. Missing this left 62 of 80 rentals with no
+      // image at all. The port is stripped because OLX emits
+      // "https://apollo.olx.in:443/..." and an explicit :443 breaks host
+      // matching in Next's image optimiser.
+      // A card holds several images: the listing photo and small badge icons
+      // ("elite seller", "verified"). Taking the first one grabbed the badge,
+      // so cards rendered with a seller tag where the property should be.
+      // Badges live under an `alias-` path; listing photos do not.
+      const srcOf = (el: Element | null | undefined) =>
+        el?.getAttribute("src") ||
+        el?.getAttribute("data-src") ||
+        el?.getAttribute("srcset")?.split(",")[0]?.trim().split(" ")[0] ||
+        "";
+      const candidates = Array.from(card.querySelectorAll("img"))
+        .map(srcOf)
+        .filter((u) => u && !u.startsWith("data:"));
+      const rawSrc =
+        candidates.find((u) => u.includes("/v1/files/") && !u.includes("alias-")) ??
+        candidates[0] ??
+        "";
+      const imageUrl = rawSrc.replace("://apollo.olx.in:443/", "://apollo.olx.in/");
       cards.push({
         title,
         price,
         location,
         url: href.startsWith("http") ? href : `https://www.olx.in${href}`,
-        imageUrl: img?.getAttribute("src") ?? "",
+        imageUrl,
         meta,
       });
     }

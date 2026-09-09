@@ -15,7 +15,9 @@ import type { NextConfig } from "next";
 function imageHosts(): string[] {
   // Marketplace listings hot-link their own CDNs; only Instagram media is
   // copied into R2, because those URLs are signed and expire within days.
-  const hosts = ["media.cars24.com", "images10.gaadi.com"];
+  // apollo.olx.in was missing when OLX was wired up, so every OLX card
+  // rendered blank — the optimiser rejects a host it was not told about.
+  const hosts = ["media.cars24.com", "images10.gaadi.com", "apollo.olx.in"];
 
   const base = process.env.R2_PUBLIC_BASE_URL;
   if (base) {
