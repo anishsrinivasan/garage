@@ -8,6 +8,27 @@
  */
 import type { Page } from "playwright";
 
+/**
+ * Rewrites an apollo.olx.in URL to ask for a full-size image.
+ *
+ * The transform after the filename is ours to choose — the CDN honours any
+ * size. Result cards carry `;s=150x0;q=50`, a 1.6 KB thumbnail meant for a
+ * 150px slot, and storing it verbatim meant every OLX card and dialog was an
+ * upscaled blur. The same object at `s=1000x0;q=85` is 43 KB and is the source
+ * image's own width, so asking for more would only upscale.
+ *
+ * The port is stripped too: OLX emits "https://apollo.olx.in:443/...", and an
+ * explicit :443 stops Next's image optimiser matching the allowed host.
+ */
+export function fullSizeOlxImage(url: string): string {
+  const normalised = url.replace("://apollo.olx.in:443/", "://apollo.olx.in/");
+  if (!normalised.includes("apollo.olx.in")) return normalised;
+  // Everything from the first ";" is the transform; the path before it is the
+  // object. A URL that arrives without one gets the same treatment.
+  const [object] = normalised.split(";");
+  return object ? `${object};s=1000x0;q=85;f=webp` : normalised;
+}
+
 export type OlxListingCard = {
   title: string;
   price: string;
@@ -33,7 +54,7 @@ export type OlxListingCard = {
  *            "<title>", "TRIPLICANE, CHENNAI", "AUG 30"]
  */
 export async function extractOlxCards(page: Page): Promise<OlxListingCard[]> {
-  return page.evaluate(() => {
+  const cards = await page.evaluate(() => {
     const seen = new Set<string>();
     const cards: {
       title: string;
@@ -81,9 +102,7 @@ export async function extractOlxCards(page: Page): Promise<OlxListingCard[]> {
       // OLX lazy-loads card images, so `src` is often a placeholder or absent
       // until the card scrolls into view; the real URL sits in data-src or the
       // first candidate of srcset. Missing this left 62 of 80 rentals with no
-      // image at all. The port is stripped because OLX emits
-      // "https://apollo.olx.in:443/..." and an explicit :443 breaks host
-      // matching in Next's image optimiser.
+      // image at all.
       // A card holds several images: the listing photo and small badge icons
       // ("elite seller", "verified"). Taking the first one grabbed the badge,
       // so cards rendered with a seller tag where the property should be.
@@ -100,17 +119,22 @@ export async function extractOlxCards(page: Page): Promise<OlxListingCard[]> {
         candidates.find((u) => u.includes("/v1/files/") && !u.includes("alias-")) ??
         candidates[0] ??
         "";
-      const imageUrl = rawSrc.replace("://apollo.olx.in:443/", "://apollo.olx.in/");
       cards.push({
         title,
         price,
         location,
         url: href.startsWith("http") ? href : `https://www.olx.in${href}`,
-        imageUrl,
+        // Upsized outside the browser context, where the helper lives.
+        imageUrl: rawSrc,
         meta,
       });
     }
 
     return cards;
   });
+
+  return cards.map((card) => ({
+    ...card,
+    imageUrl: fullSizeOlxImage(card.imageUrl),
+  }));
 }

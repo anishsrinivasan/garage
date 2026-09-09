@@ -30,6 +30,7 @@ import {
   olxSearchUrl,
 } from "./olx-config";
 import { extractOlxCards, type OlxListingCard } from "./olx-cards";
+import { extractOlxGallery } from "./olx-gallery";
 
 /** "2 BHK - 2 Bathroom - 800 sqft" */
 function parseRentalMeta(meta: string): {
@@ -61,7 +62,20 @@ function parseLocality(location: string): string | null {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function toListing(card: OlxListingCard): NormalizedListing | null {
+/** Cover photo first, then the gallery, deduplicated by CDN object id. */
+function galleryFor(card: OlxListingCard, photos: string[]): string[] {
+  const objectId = (url: string) => url.match(/\/v1\/files\/([^/;?]+)/)?.[1] ?? url;
+  const ordered = card.imageUrl ? [card.imageUrl, ...photos] : photos;
+  const seen = new Set<string>();
+  return ordered.filter((url) => {
+    const id = objectId(url);
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+}
+
+function toListing(card: OlxListingCard, photos: string[] = []): NormalizedListing | null {
   const rent = parseRent(card.price);
   const { bhk, carpetAreaSqft } = parseRentalMeta(card.meta);
   const locality = parseLocality(card.location);
@@ -112,21 +126,19 @@ function toListing(card: OlxListingCard): NormalizedListing | null {
     sourceListingId: card.url.match(/iid-(\d+)/)?.[1],
     sellerType: "owner",
 
-    media: card.imageUrl
-      ? [
-          {
-            url: card.imageUrl,
-            type: "image" as const,
-            mimeType: "image/jpeg",
-            posterUrl: null,
-            source: "marketplace" as const,
-            width: null,
-            height: null,
-            score: null,
-            scoreReason: null,
-          },
-        ]
-      : [],
+    // The card image first — it is the one the seller chose as the cover —
+    // then the rest of the gallery, minus that same photo arriving again.
+    media: galleryFor(card, photos).map((url) => ({
+      url,
+      type: "image" as const,
+      mimeType: "image/jpeg",
+      posterUrl: null,
+      source: "marketplace" as const,
+      width: null,
+      height: null,
+      score: null,
+      scoreReason: null,
+    })),
     description: card.title || undefined,
   } as NormalizedListing;
 }
@@ -187,12 +199,19 @@ export function createOlxRentalsAdapter(): ScraperAdapter {
             const cards = await extractOlxCards(page);
             if (cards.length === 0) break;
 
+            // Each gallery costs a navigation, so this walks the cards after
+            // the grid has been read rather than during — the grid is already
+            // in memory and the next loop turn navigates to page n+1 anyway.
+            let withGallery = 0;
             for (const card of cards) {
-              const listing = toListing(card);
+              const photos = await extractOlxGallery(page, card.url);
+              if (photos.length > 1) withGallery += 1;
+              const listing = toListing(card, photos);
               if (listing) listings.push(listing);
             }
             console.log(
-              `[olx-rentals] page ${n}: ${cards.length} card(s), ${listings.length} kept so far`,
+              `[olx-rentals] page ${n}: ${cards.length} card(s), ` +
+                `${withGallery} with a full gallery, ${listings.length} kept so far`,
             );
           } catch (err) {
             const message = err instanceof Error ? err.message : String(err);

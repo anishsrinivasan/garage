@@ -7,7 +7,7 @@ import type {
   NormalizedListing,
 } from "@classifieds/shared";
 import { OLX_CONFIG, olxLaunchOptions, olxSearchUrl } from "./olx-config";
-import { extractOlxCards, type OlxListingCard } from "./olx-cards";
+import { extractOlxCards, fullSizeOlxImage, type OlxListingCard } from "./olx-cards";
 import { parseIndianPrice } from "../utils/price";
 
 type OlxDetailData = {
@@ -287,7 +287,10 @@ export function createOlxAdapter(): ScraperAdapter {
                 sourceListingId: card.url.match(/(\d+)$/)?.[1],
                 sellerName: detailData.sellerName,
                 sellerType: "individual",
-                media: photos.map((url) => ({ url, type: "image" as const })),
+                media: photos.map((url) => ({
+                  url: fullSizeOlxImage(url),
+                  type: "image" as const,
+                })),
                 description: detailData.description,
               };
 

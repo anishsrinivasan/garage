@@ -13,7 +13,8 @@
     "session:import": "bun run src/session-import.ts",
     "create-alert": "bun run src/create-alert.ts",
     "rescore-media": "bun run src/rescore-media.ts",
-    "discover": "bun run src/apify-discover.ts"
+    "discover": "bun run src/apify-discover.ts",
+    "upsize-olx-media": "bun run src/upsize-olx-media.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.69",
