@@ -59,6 +59,9 @@ RUN bun install --frozen-lockfile || bun install
 # tail of shared objects a headless browser needs on a slim Debian image.
 RUN bunx playwright install --with-deps chromium
 
+COPY apps/cron/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 COPY apps/cron     ./apps/cron
 COPY apps/scraper  ./apps/scraper
 COPY packages      ./packages
@@ -72,4 +75,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
 
 # Run under a virtual display so the OLX adapter's headful Chromium has
 # somewhere to draw. Every other adapter is unaffected by this.
-CMD ["xvfb-run", "-a", "--server-args=-screen 0 1440x900x24", "bun", "run", "apps/cron/src/index.ts"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["bun", "run", "apps/cron/src/index.ts"]
