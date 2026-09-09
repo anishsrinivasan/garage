@@ -98,6 +98,36 @@ export const viewport: Viewport = {
   // closely at photos.
 };
 
+function FooterColumn({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-600">
+        {title}
+      </p>
+      <ul className="mt-3 space-y-2">{children}</ul>
+    </div>
+  );
+}
+
+function FooterLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <li>
+      <Link
+        href={href}
+        className="text-xs text-ink-400 transition hover:text-ink-100"
+      >
+        {children}
+      </Link>
+    </li>
+  );
+}
+
 export default function RootLayout({
   children,
 }: {
@@ -163,12 +193,49 @@ export default function RootLayout({
         <FeedbackModal />
 
         <footer className="mt-24 border-t border-white/5">
-          <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-4 px-4 py-8 text-xs text-ink-500 sm:flex-row sm:items-center sm:px-6">
-            <div className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 animate-pulse-glow rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-              <span>Listings verified against their source on every scrape</span>
+          <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+            <div className="flex flex-col gap-8 sm:flex-row sm:justify-between">
+              <div className="max-w-sm">
+                <div className="flex items-center gap-2 text-xs text-ink-400">
+                  <span className="h-1.5 w-1.5 animate-pulse-glow rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                  <span>Listings verified against their source on every scrape</span>
+                </div>
+                <p className="mt-3 text-xs leading-relaxed text-ink-600">
+                  Preowned cars and rental homes across Chennai, collected from the
+                  dealers and brokers who posted them. An index, not a marketplace.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-8 sm:flex-row sm:gap-16">
+                <FooterColumn title="Browse">
+                  <FooterLink href="/">Cars</FooterLink>
+                  <FooterLink href="/rent">Rentals</FooterLink>
+                  <FooterLink href="/garages">Garages</FooterLink>
+                  <FooterLink href="/saved">Saved</FooterLink>
+                </FooterColumn>
+
+                {/* The index is meant to be queried, not scraped — so the way in
+                    is a footer link rather than something only agents find. */}
+                <FooterColumn title="For agents">
+                  <FooterLink href="/mcp">MCP endpoint</FooterLink>
+                  <FooterLink href="/llms.txt">llms.txt</FooterLink>
+                  <FooterLink href="/api/listings">JSON API</FooterLink>
+                </FooterColumn>
+
+                <FooterColumn title="Legal">
+                  <FooterLink href="/terms">Terms of use</FooterLink>
+                  <FooterLink href="/privacy">Privacy</FooterLink>
+                </FooterColumn>
+              </div>
             </div>
-            <p>© {new Date().getFullYear()} Classifieds · Built for car people</p>
+
+            <div className="mt-10 flex flex-col gap-2 border-t border-white/5 pt-6 text-xs text-ink-600 sm:flex-row sm:items-center sm:justify-between">
+              <p>© {new Date().getFullYear()} Classifieds · Built for car people</p>
+              <p>
+                Listing photos and text belong to whoever posted them, and each
+                listing links back to its source.
+              </p>
+            </div>
           </div>
         </footer>
       </body>

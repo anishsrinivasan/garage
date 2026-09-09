@@ -30,6 +30,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/`, lastModified: now, changeFrequency: "hourly", priority: 1 },
     { url: `${SITE_URL}/rent`, lastModified: now, changeFrequency: "hourly", priority: 0.9 },
     { url: `${SITE_URL}/garages`, lastModified: now, changeFrequency: "daily", priority: 0.8 },
+    // Standing pages. Low priority, but they should be discoverable — /mcp in
+    // particular is the answer to a crawler that would otherwise scrape the feed.
+    { url: `${SITE_URL}/mcp`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
+    { url: `${SITE_URL}/terms`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${SITE_URL}/privacy`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
   ];
 
   try {

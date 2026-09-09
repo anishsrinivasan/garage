@@ -7,7 +7,7 @@ import { Suspense } from "react";
 import { SavedListings } from "./saved-listings";
 
 export const metadata = {
-  title: "Saved Listings · Classifieds",
+  title: "Saved Listings",
   description: "The cars and rentals you have saved.",
 };
 
