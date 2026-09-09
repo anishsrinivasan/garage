@@ -13,7 +13,7 @@
  * Which listing is open lives in the URL (`?preview=<id>`), so the dialog
  * survives reload, closes on Back, and can be linked to.
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
@@ -144,9 +144,22 @@ function PreviewSkeleton() {
   );
 }
 
-/** Hero plus a scrolling strip — enough to judge a listing, not a lightbox. */
+/** Hero plus a strip you can click through — enough to judge a listing. */
 function PreviewMedia({ media, alt }: { media: MediaItem[]; alt: string }) {
-  const [hero, ...rest] = media;
+  const [index, setIndex] = useState(0);
+  const hero = media[index] ?? media[0];
+
+  // Arrow keys move through the photos while the dialog is open. Escape is
+  // handled a level up, on the dialog itself.
+  useEffect(() => {
+    if (media.length < 2) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "ArrowRight") setIndex((i) => (i + 1) % media.length);
+      else if (e.key === "ArrowLeft") setIndex((i) => (i - 1 + media.length) % media.length);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [media.length]);
 
   if (!hero) {
     return (
@@ -160,6 +173,7 @@ function PreviewMedia({ media, alt }: { media: MediaItem[]; alt: string }) {
     <div>
       <div className="relative aspect-[16/10] w-full overflow-hidden bg-ink-950">
         <Image
+          key={hero.url}
           src={hero.url}
           alt={alt}
           fill
@@ -167,16 +181,29 @@ function PreviewMedia({ media, alt }: { media: MediaItem[]; alt: string }) {
           priority
           className="object-cover"
         />
+        {media.length > 1 && (
+          <span className="absolute bottom-3 right-3 rounded-md bg-ink-950/70 px-2 py-1 font-mono text-[10px] tracking-wider text-ink-300 backdrop-blur">
+            {index + 1} / {media.length}
+          </span>
+        )}
       </div>
-      {rest.length > 0 && (
+      {media.length > 1 && (
         <div className="flex gap-2 overflow-x-auto px-4 pt-3">
-          {rest.slice(0, 7).map((item) => (
-            <div
+          {media.map((item, i) => (
+            <button
               key={item.url}
-              className="relative h-16 w-24 shrink-0 overflow-hidden rounded-lg border border-white/[0.06] bg-ink-950"
+              type="button"
+              onClick={() => setIndex(i)}
+              aria-label={`Photo ${i + 1}`}
+              aria-current={i === index}
+              className={`relative h-16 w-24 shrink-0 overflow-hidden rounded-lg border bg-ink-950 transition ${
+                i === index
+                  ? "border-accent/70 opacity-100"
+                  : "border-white/[0.06] opacity-60 hover:opacity-100"
+              }`}
             >
               <Image src={item.url} alt="" fill sizes="96px" className="object-cover" />
-            </div>
+            </button>
           ))}
         </div>
       )}
@@ -287,7 +314,7 @@ function CarPreview({
 
   return (
     <>
-      <PreviewMedia media={media} alt={`${l.year} ${title}`} />
+      <PreviewMedia key={l.id} media={media} alt={`${l.year} ${title}`} />
       <div className="p-6">
         <div className="flex items-center gap-2">
           <SourceBadge platform={l.sourcePlatform} />
@@ -362,7 +389,7 @@ function RentalPreview({
 
   return (
     <>
-      <PreviewMedia media={media} alt={title} />
+      <PreviewMedia key={l.id} media={media} alt={title} />
       <div className="p-6">
         <div className="flex items-center gap-2">
           <SourceBadge platform={l.sourcePlatform} />

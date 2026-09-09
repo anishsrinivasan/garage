@@ -7,7 +7,7 @@
  * is a distinct entry and going back to a previous combination is instant while
  * it refetches underneath.
  */
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url, { headers: { accept: "application/json" } });
@@ -32,5 +32,9 @@ export function useFeed<TItem>(path: "/api/listings" | "/api/rentals", queryStri
   return useQuery({
     queryKey: [path, queryString],
     queryFn: () => fetchJson<FeedResponse<TItem>>(`${path}?${queryString}`),
+    // The swipe deck walks off the end of one page and onto the next by itself.
+    // Without this the page change empties `data` for a moment and the deck is
+    // replaced by the grid skeleton mid-swipe.
+    placeholderData: keepPreviousData,
   });
 }

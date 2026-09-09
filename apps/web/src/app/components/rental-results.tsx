@@ -9,6 +9,7 @@ import { useSearchParams } from "next/navigation";
 import { SwipeDeck } from "./swipe-deck";
 import { ListingPreview } from "./listing-preview";
 import { usePreview } from "@/app/lib/use-preview";
+import { useQueryState, parseAsInteger } from "nuqs";
 import { ViewToggle, useFeedMode } from "./view-toggle";
 import { useBookmarks } from "@/app/lib/use-bookmarks";
 import { useDismissed } from "@/app/lib/use-dismissed";
@@ -28,6 +29,10 @@ export function RentalResults() {
   const [mode, setMode] = useFeedMode();
   const { toggle, isBookmarked } = useBookmarks();
   const { open: openPreview } = usePreview();
+  const [, setPage] = useQueryState(
+    "page",
+    parseAsInteger.withDefault(1).withOptions({ history: "replace", scroll: false }),
+  );
   const { dismiss, isDismissed, count: dismissedCount, restoreAll } = useDismissed("rentals");
 
   // Every current filter survives the toggle; only the toggle itself and the
@@ -107,6 +112,10 @@ export function RentalResults() {
             <RentalCard listing={listing} priority showBookmark={false} />
           )}
           onOpen={(listing) => openPreview(listing.id)}
+          hasMore={data.page < data.totalPages}
+          onExhausted={() => {
+            if (data.page < data.totalPages) setPage(data.page + 1);
+          }}
           onDecide={(listing, decision) => {
             // Right saves into the same bookmarks the grid and /saved use, so a
             // swipe and a heart tap are the same action. Left is remembered
@@ -140,7 +149,9 @@ export function RentalResults() {
         </div>
       )}
 
-      <Pagination page={data.page} totalPages={data.totalPages} total={data.total} />
+      {mode === "grid" && (
+        <Pagination page={data.page} totalPages={data.totalPages} total={data.total} />
+      )}
 
       <ListingPreview />
     </>

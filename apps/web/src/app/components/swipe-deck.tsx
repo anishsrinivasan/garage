@@ -33,6 +33,7 @@ export function SwipeDeck<T extends { id: string }>({
   onDecide,
   onOpen,
   onExhausted,
+  hasMore = false,
   emptyMessage,
 }: {
   items: T[];
@@ -45,7 +46,10 @@ export function SwipeDeck<T extends { id: string }>({
    * instead of the anchor inside the card — so the link never fires.
    */
   onOpen?: (item: T) => void;
+  /** Fired once when the last card of the current batch is decided. */
   onExhausted?: () => void;
+  /** More listings exist beyond this batch, so the deck is not really done. */
+  hasMore?: boolean;
   emptyMessage: string;
 }) {
   const [decided, setDecided] = useState<string[]>([]);
@@ -69,7 +73,10 @@ export function SwipeDeck<T extends { id: string }>({
 
   const commit = useCallback(
     (decision: SwipeDecision) => {
-      if (!current) return;
+      // `leaving` means a card is already mid-flight. Without this, holding an
+      // arrow key fires several commits against the same card and the extra
+      // ones are simply lost.
+      if (!current || leaving) return;
       setLeaving(decision);
       // Let the card clear the viewport before the next one takes its place;
       // swapping immediately reads as a flicker rather than a throw.
@@ -81,7 +88,7 @@ export function SwipeDeck<T extends { id: string }>({
         setLeaving(null);
       }, 220);
     },
-    [current, onDecide],
+    [current, leaving, onDecide],
   );
 
   // Undo only puts the card back on the deck. Reversing the caller's side of
@@ -114,9 +121,22 @@ export function SwipeDeck<T extends { id: string }>({
     return () => window.removeEventListener("keydown", onKey);
   }, [commit, undo]);
 
+  // Guarded with a ref: while the deck sits empty this effect re-runs on every
+  // render, and an unguarded call would advance several pages at once.
+  // Not gated on having decided anything: a batch can arrive already empty,
+  // when every listing on it was passed on an earlier visit, and that page
+  // still has to hand over to the next one.
+  const announcedEmpty = useRef(false);
   useEffect(() => {
-    if (current == null && decided.length > 0) onExhausted?.();
-  }, [current, decided.length, onExhausted]);
+    if (current == null) {
+      if (!announcedEmpty.current) {
+        announcedEmpty.current = true;
+        onExhausted?.();
+      }
+    } else {
+      announcedEmpty.current = false;
+    }
+  }, [current, onExhausted]);
 
   function onPointerDown(e: React.PointerEvent) {
     if (leaving) return;
@@ -146,6 +166,15 @@ export function SwipeDeck<T extends { id: string }>({
       setDrag({ x: 0, y: 0 });
       if (!dragged.current && current) onOpen?.(current);
     }
+  }
+
+  if (!current && hasMore) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-white/10 bg-white/[0.02] py-24 text-center">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/10 border-t-accent" />
+        <p className="text-sm text-ink-500">Fetching more listings…</p>
+      </div>
+    );
   }
 
   if (!current) {
