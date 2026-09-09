@@ -169,10 +169,10 @@ export default function RootLayout({
                 Rentals
               </Link>
               <Link
-                href="/garages"
+                href="/sources"
                 className="rounded-md px-3 py-1.5 text-sm font-medium text-ink-400 transition hover:bg-white/5 hover:text-ink-50"
               >
-                Garages
+                Sources
               </Link>
               <SavedNavLink />
             </nav>
@@ -209,7 +209,7 @@ export default function RootLayout({
                 <FooterColumn title="Browse">
                   <FooterLink href="/">Cars</FooterLink>
                   <FooterLink href="/rent">Rentals</FooterLink>
-                  <FooterLink href="/garages">Garages</FooterLink>
+                  <FooterLink href="/sources">Sources</FooterLink>
                   <FooterLink href="/saved">Saved</FooterLink>
                 </FooterColumn>
 

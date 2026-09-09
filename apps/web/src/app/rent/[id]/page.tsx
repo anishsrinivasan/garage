@@ -263,7 +263,26 @@ export default async function RentalDetailPage({
               Broker
             </h2>
             <div className="space-y-3">
-              <Row icon={Building2} label="Name" value={listing.orgName ?? "—"} />
+              {/* Linked, so a good broker is a place you can go and browse
+                  rather than a name printed on a page. */}
+              {listing.orgSlug ? (
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="flex items-center gap-2 text-ink-500">
+                    <Building2 className="h-3.5 w-3.5" strokeWidth={1.8} />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.12em]">
+                      Name
+                    </span>
+                  </span>
+                  <Link
+                    href={`/sources/${listing.orgSlug}`}
+                    className="truncate font-medium text-accent underline-offset-4 hover:underline"
+                  >
+                    {listing.orgName ?? "View listings"}
+                  </Link>
+                </div>
+              ) : (
+                <Row icon={Building2} label="Name" value={listing.orgName ?? "—"} />
+              )}
               <Row icon={Phone} label="Phone" value={phone ?? "—"} />
             </div>
             {phone && (

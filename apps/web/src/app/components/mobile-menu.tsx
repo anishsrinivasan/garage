@@ -30,8 +30,8 @@ export function MobileMenu() {
             <MobileLink href="/rent" active={pathname.startsWith("/rent")} onClick={() => setOpen(false)}>
               Rentals
             </MobileLink>
-            <MobileLink href="/garages" active={pathname.startsWith("/garages")} onClick={() => setOpen(false)}>
-              Garages
+            <MobileLink href="/sources" active={pathname.startsWith("/sources")} onClick={() => setOpen(false)}>
+              Sources
             </MobileLink>
             <MobileLink href="/saved" active={pathname === "/saved"} onClick={() => setOpen(false)}>
               <span className="flex items-center gap-2">

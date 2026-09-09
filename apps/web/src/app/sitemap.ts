@@ -28,7 +28,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base: MetadataRoute.Sitemap = [
     { url: `${SITE_URL}/`, lastModified: now, changeFrequency: "hourly", priority: 1 },
     { url: `${SITE_URL}/rent`, lastModified: now, changeFrequency: "hourly", priority: 0.9 },
-    { url: `${SITE_URL}/garages`, lastModified: now, changeFrequency: "daily", priority: 0.8 },
+    { url: `${SITE_URL}/sources`, lastModified: now, changeFrequency: "daily", priority: 0.8 },
     // Standing pages. Low priority, but they should be discoverable — /mcp in
     // particular is the answer to a crawler that would otherwise scrape the feed.
     { url: `${SITE_URL}/mcp`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
@@ -40,7 +40,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const garages = await getGarages();
     for (const g of garages) {
       base.push({
-        url: `${SITE_URL}/garages/${g.slug}`,
+        url: `${SITE_URL}/sources/${g.slug}`,
         lastModified: now,
         changeFrequency: "daily",
         priority: 0.6,

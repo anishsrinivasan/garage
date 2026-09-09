@@ -160,7 +160,7 @@ function buildConditions(filters: RentalFilters): SQL[] {
   return conditions;
 }
 
-const SELECTION = {
+export const RENTAL_SELECTION = {
   id: listings.id,
   price: listings.price,
   pricePeriod: listings.pricePeriod,
@@ -205,7 +205,7 @@ const SELECTION = {
 
 function baseQuery() {
   return db
-    .select(SELECTION)
+    .select(RENTAL_SELECTION)
     .from(listings)
     .innerJoin(listingRentalAttrs, eq(listingRentalAttrs.listingId, listings.id))
     .leftJoin(localities, eq(localities.id, listings.localityId))

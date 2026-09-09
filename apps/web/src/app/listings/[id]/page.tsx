@@ -287,7 +287,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
             <div className="space-y-3">
               {listing.garageSlug ? (
                 <Link
-                  href={`/garages/${listing.garageSlug}`}
+                  href={`/sources/${listing.garageSlug}`}
                   className="flex items-center justify-between gap-3 text-sm transition hover:text-accent"
                 >
                   <span className="flex items-center gap-2 text-ink-500">
