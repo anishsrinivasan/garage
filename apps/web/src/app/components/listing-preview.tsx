@@ -128,9 +128,9 @@ export function ListingPreview() {
             </p>
           </div>
         ) : data.vertical === "cars" ? (
-          <CarPreview listing={data.listing} onClose={close} />
+          <CarPreview listing={data.listing} />
         ) : (
-          <RentalPreview listing={data.listing} onClose={close} />
+          <RentalPreview listing={data.listing} />
         )}
       </div>
     </div>,
@@ -195,18 +195,20 @@ function PreviewActions({
   id,
   href,
   sourceUrl,
-  onClose,
 }: {
   id: string;
   href: string;
   sourceUrl: string | null;
-  onClose: () => void;
 }) {
   return (
     <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-white/5 pt-5">
+      {/* No onClick closing the dialog here. Closing writes the URL through
+          nuqs to drop ?preview, and that update raced this link's own
+          navigation and won — the route change was clobbered and the button
+          did nothing. Navigating away unmounts the dialog by itself, and the
+          param goes with the old URL. */}
       <Link
         href={href}
-        onClick={onClose}
         className="inline-flex items-center gap-1.5 rounded-lg border border-accent/20 bg-accent/10 px-4 py-2 text-sm font-semibold text-accent transition hover:bg-accent/15"
       >
         Open full listing
@@ -239,13 +241,7 @@ function Description({ text }: { text: unknown }) {
 
 /* -------------------------------------------------------------------- cars */
 
-function CarPreview({
-  listing,
-  onClose,
-}: {
-  listing: Record<string, unknown>;
-  onClose: () => void;
-}) {
+function CarPreview({ listing }: { listing: Record<string, unknown> }) {
   const l = listing as {
     id: string;
     make: string;
@@ -299,12 +295,7 @@ function CarPreview({
           <Spec icon={MapPin} label="Where" value={l.garageName ?? l.city} />
         </div>
 
-        <PreviewActions
-          id={l.id}
-          href={`/listings/${l.id}`}
-          sourceUrl={l.sourceUrl}
-          onClose={onClose}
-        />
+        <PreviewActions id={l.id} href={`/listings/${l.id}`} sourceUrl={l.sourceUrl} />
         <Description text={l.description} />
       </div>
     </>
@@ -313,13 +304,7 @@ function CarPreview({
 
 /* ----------------------------------------------------------------- rentals */
 
-function RentalPreview({
-  listing,
-  onClose,
-}: {
-  listing: Record<string, unknown>;
-  onClose: () => void;
-}) {
+function RentalPreview({ listing }: { listing: Record<string, unknown> }) {
   const l = listing as {
     id: string;
     bhk: number | null;
@@ -397,12 +382,7 @@ function RentalPreview({
           <Spec icon={Wallet} label="Deposit" value={deposit ? `₹${deposit}` : null} />
         </div>
 
-        <PreviewActions
-          id={l.id}
-          href={`/rent/${l.id}`}
-          sourceUrl={l.sourceUrl}
-          onClose={onClose}
-        />
+        <PreviewActions id={l.id} href={`/rent/${l.id}`} sourceUrl={l.sourceUrl} />
         <Description text={l.description} />
       </div>
     </>
