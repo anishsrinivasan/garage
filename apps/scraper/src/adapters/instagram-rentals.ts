@@ -57,6 +57,7 @@ async function toListing(
     furnishing: extraction.furnishing,
     tenantPreference: extraction.tenantPreference,
     parking: extraction.parking,
+    gatedCommunity: extraction.gatedCommunity,
     availableFrom: extraction.availableFrom,
     amenities: extraction.amenities ?? [],
   });

@@ -96,6 +96,9 @@ function toListing(card: OlxListingCard, photos: string[] = []): NormalizedListi
     maintenanceIncluded: null,
     furnishing: null,
     tenantPreference: null,
+    // An OLX card carries a title and a price, not a description, so there is
+    // nothing here that could say whether it is a gated community.
+    gatedCommunity: null,
     parking: null,
     availableFrom: null,
     amenities: [],
