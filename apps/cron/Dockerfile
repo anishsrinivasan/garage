@@ -19,9 +19,15 @@ ENV DEBIAN_FRONTEND=noninteractive \
 # the HTTP/2 stream for a headless client before any response — curl over h2 and
 # h1.1 and headless Chromium all fail with protocol errors, while headful
 # Chromium gets HTTP 200. Headful needs a display, and a container has none.
+#
+# xauth is not optional alongside xvfb: `xvfb-run` shells out to it to create
+# the cookie for the display it starts, and without it the entrypoint dies with
+# "xauth command not found" before Bun is reached. It is not a dependency of
+# the xvfb package, so nothing pulls it in — the container simply crash-looped.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ffmpeg \
       xvfb \
+      xauth \
       ca-certificates \
       fonts-liberation \
       tzdata \
