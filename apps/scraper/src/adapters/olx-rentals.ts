@@ -168,7 +168,21 @@ export function createOlxRentalsAdapter(): ScraperAdapter {
           console.log(`[olx-rentals] page ${n}: ${url}`);
           try {
             await page.goto(url, { waitUntil: "domcontentloaded" });
-            await page.waitForTimeout(5000);
+            await page.waitForTimeout(4000);
+
+            // OLX only loads a card's photo once it scrolls into view, so
+            // reading the page straight after navigation gave 15 images for 74
+            // listings. Walking to the bottom and back lets every card render
+            // its own image before anything is extracted.
+            await page.evaluate(async () => {
+              const step = window.innerHeight;
+              for (let y = 0; y < document.body.scrollHeight; y += step) {
+                window.scrollTo(0, y);
+                await new Promise((r) => setTimeout(r, 400));
+              }
+              window.scrollTo(0, 0);
+            });
+            await page.waitForTimeout(2500);
             pagesScraped += 1;
             const cards = await extractOlxCards(page);
             if (cards.length === 0) break;
