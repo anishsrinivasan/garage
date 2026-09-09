@@ -12,6 +12,7 @@
  *   GET  /status          — last runs per source, from the database
  *   GET  /jobs            — in-memory job history for this process
  *   GET  /jobs/:id        — one job
+ *   POST /instagram/profile — read an IG profile   (auth)
  *   POST /scrape          — queue a scrape        (auth)
  *   POST /maintenance     — queue delist + dedupe (auth)
  */
@@ -44,6 +45,7 @@ app.use("*", logger());
  * than per-route so adding a new trigger can't accidentally ship unauthenticated.
  */
 app.use("/scrape", requireAuth);
+app.use("/instagram/profile", requireAuth);
 app.use("/maintenance", requireAuth);
 
 async function requireAuth(
@@ -177,6 +179,35 @@ app.get("/jobs/:id", (c) => {
  *   { "sources": ["instagram"], "handles": ["kun_elite"] }
  * Returns 202 — a full run takes minutes, well past any HTTP timeout.
  */
+/**
+ * Reads an Instagram profile for the admin's "add a garage" preview.
+ *
+ * It lives here because it needs a real browser. The dashboard is deployed to
+ * Cloudflare Workers, where Playwright cannot run at all, so it asks this
+ * service — the same reason scrapes are triggered here rather than run in a
+ * server action.
+ *
+ * Answers quickly or not at all: a profile read is a handful of seconds, and
+ * the caller is a person waiting on a form.
+ */
+app.post("/instagram/profile", async (c) => {
+  const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
+  const handle = typeof body.handle === "string" ? body.handle.trim() : "";
+  if (!handle) return c.json({ error: "handle is required" }, 400);
+
+  try {
+    const { fetchInstagramProfile } = await import(
+      "@classifieds/scraper/instagram-profile"
+    );
+    const profile = await fetchInstagramProfile(handle);
+    return c.json({ profile });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(`[cron] instagram profile read failed for @${handle}: ${message}`);
+    return c.json({ error: message }, 502);
+  }
+});
+
 app.post("/scrape", async (c) => {
   const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
   const requested = Array.isArray(body.sources)

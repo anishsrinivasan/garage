@@ -35,6 +35,11 @@ function createSql(): Sql {
       idle_timeout: IDLE_TIMEOUT,
       connect_timeout: CONNECT_TIMEOUT,
       prepare: false,
+      // postgres.js otherwise spends a round trip introspecting pg_type before
+      // it runs the first query on a connection. The database is in Hyderabad,
+      // so that is a real round trip on every cold serverless invocation, and
+      // the schema uses no custom types — there is nothing here worth fetching.
+      fetch_types: false,
     });
 
   if (process.env.NODE_ENV !== "production") {

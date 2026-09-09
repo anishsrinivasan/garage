@@ -1,0 +1,169 @@
+import { Suspense } from "react";
+import { Sparkles, TrendingUp, LayoutGrid, Clock } from "lucide-react";
+import {
+  getListings,
+  getFilterOptions,
+  getCatalogueHealth,
+} from "@/app/lib/queries";
+import type { ListingFilters, SortField, SortOrder } from "@/app/lib/queries";
+import { Filters } from "@/app/components/filters";
+import { CarResults } from "@/app/components/car-results";
+import { MobileFilterToggle } from "@/app/components/mobile-filter-toggle";
+import { relativeAge } from "@/app/lib/format";
+
+/**
+ * Rendered per request.
+ *
+ * This carried `revalidate = 300` to avoid re-running the feed query and five
+ * `SELECT DISTINCT` facet queries on every view. The facets are the expensive
+ * part and they are already memoised by `unstable_cache` under the `listings`
+ * tag, so the export was buying little: because the page reads searchParams,
+ * Next classified it dynamic and rendered it per request regardless.
+ *
+ * vinext reads the same export as "prerender, revalidate every 300s", which for
+ * a filter-driven feed means one ISR key per filter combination — and on a cold
+ * key it streams the shell and fills the cache behind the request, so the first
+ * visitor to any new combination got a page with no results. Saying what was
+ * already true makes both runtimes agree.
+ */
+export const dynamic = "force-dynamic";
+
+interface PageProps {
+  searchParams: Promise<Record<string, string | undefined>>;
+}
+
+function parseFilters(sp: Record<string, string | undefined>): ListingFilters {
+  const num = (v: string | undefined) => {
+    if (!v) return undefined;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : undefined;
+  };
+  return {
+    search: sp.search,
+    minPrice: num(sp.minPrice),
+    maxPrice: num(sp.maxPrice),
+    minYear: num(sp.minYear),
+    maxYear: num(sp.maxYear),
+    fuelType: sp.fuelType,
+    transmission: sp.transmission,
+    bodyType: sp.bodyType,
+    sourcePlatform: sp.sourcePlatform,
+    city: sp.city,
+    garage: sp.garage,
+    freshness: sp.freshness,
+    includeStale: sp.includeStale === "1",
+    sortBy: (sp.sortBy as SortField) ?? "relevance",
+    sortOrder: (sp.sortOrder as SortOrder) ?? "desc",
+    page: num(sp.page) ?? 1,
+  };
+}
+
+export default async function HomePage({ searchParams }: PageProps) {
+  const sp = await searchParams;
+  const filters = parseFilters(sp);
+
+  const [filterOptions, health] = await Promise.all([
+    getFilterOptions(),
+    getCatalogueHealth(),
+  ]);
+
+  const lastRun = relativeAge(health.lastSuccessfulRun);
+
+  return (
+    <>
+      <section className="relative mb-10 overflow-hidden rounded-2xl border border-white/[0.06] bg-ink-900/40 px-6 py-10 backdrop-blur-sm sm:px-10 sm:py-14">
+        <div className="pointer-events-none absolute inset-0 -z-10">
+          <div className="absolute -top-24 left-1/4 h-[400px] w-[400px] rounded-full bg-accent/20 blur-[120px]" />
+          <div className="absolute -bottom-24 right-1/4 h-[360px] w-[360px] rounded-full bg-electric/10 blur-[120px]" />
+        </div>
+
+        {/* The badge used to read "Updated hourly" unconditionally. It said that
+            for the fifteen weeks the Instagram scraper was failing. It now
+            reports the real timestamp of the last successful run. */}
+        <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] font-medium text-ink-300">
+          <Sparkles className="h-3 w-3 text-accent" />
+          <span className="font-mono uppercase tracking-[0.18em]">
+            {lastRun ? `AI-curated · Updated ${lastRun.toLowerCase()}` : "AI-curated"}
+          </span>
+        </div>
+
+        <h1 className="mt-5 max-w-3xl font-display text-4xl font-bold leading-[1.05] tracking-tight sm:text-6xl">
+          <span className="text-gradient">Your next ride,</span>
+          <br />
+          <span className="text-accent-gradient">engineered to find you.</span>
+        </h1>
+        <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-ink-300">
+          Every preowned car listing across Cars24, CarDekho, and trusted
+          Instagram dealers — deduplicated, normalized, and searchable in one place.
+        </p>
+
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Stat
+            icon={<LayoutGrid className="h-3.5 w-3.5" />}
+            label="Live listings"
+            value={health.activeListings.toLocaleString("en-IN")}
+          />
+          <Stat
+            icon={<Clock className="h-3.5 w-3.5" />}
+            label="Added this week"
+            value={health.addedThisWeek.toLocaleString("en-IN")}
+          />
+          <Stat
+            icon={<TrendingUp className="h-3.5 w-3.5" />}
+            label="Garages"
+            value={filterOptions.garages.length.toString()}
+          />
+        </div>
+      </section>
+
+      <div className="lg:flex lg:gap-8">
+        <aside className="mb-6 shrink-0 lg:mb-0 lg:w-72">
+          <MobileFilterToggle>
+            <Suspense fallback={<div className="h-96" />}>
+              <Filters options={filterOptions} />
+            </Suspense>
+          </MobileFilterToggle>
+        </aside>
+
+        <div className="min-w-0 flex-1">
+          {/* The results grid is the only thing on this page that depends on the
+              filters, so it's the only thing that should suspend. The old code
+              wrapped Filters and Pagination, neither of which fetches. */}
+          {/* Fetched in the browser through /api/listings. The shell — hero,
+              facets, filter rail — still renders on the server. */}
+          <CarResults />
+        </div>
+      </div>
+    </>
+  );
+}
+
+
+
+function Stat({
+  icon,
+  label,
+  value,
+}: {
+  icon?: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="surface flex items-center gap-3 rounded-xl px-4 py-2.5">
+      {icon && (
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 text-accent ring-1 ring-inset ring-accent/20">
+          {icon}
+        </span>
+      )}
+      <div>
+        <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink-500">
+          {label}
+        </p>
+        <p className="font-display text-lg font-bold leading-none text-ink-50">
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}

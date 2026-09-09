@@ -1,4 +1,8 @@
-export const revalidate = 600;
+/**
+ * Rendered per request. Nothing about this page is cached across requests: the
+ * database is asked every time.
+ */
+export const dynamic = "force-dynamic";
 
 import type { Metadata } from "next";
 import Link from "next/link";

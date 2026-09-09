@@ -44,7 +44,11 @@ import { Gallery } from "@/app/components/gallery";
 import { ListingCard } from "@/app/components/listing-card";
 import { AgeChip } from "@/app/components/age-chip";
 
-export const revalidate = 600;
+/**
+ * Rendered per request. Nothing about this page is cached across requests: the
+ * database is asked every time.
+ */
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,

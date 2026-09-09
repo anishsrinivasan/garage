@@ -3,8 +3,29 @@ import { getAdminListings } from "@/lib/admin-queries";
 import { PageHeader, Badge, EmptyState } from "@/components/ui";
 import { ListingRowActions } from "@/components/listing-row-actions";
 import { relativeAge } from "@classifieds/shared";
+import { listingTitle, listingPrice, soldLabel } from "@/lib/listing-label";
 
 export const dynamic = "force-dynamic";
+
+const VERTICALS = [
+  { value: "", label: "All types" },
+  { value: "cars", label: "Cars" },
+  { value: "rentals", label: "Rentals" },
+] as const;
+
+function rowSubtitle(row: {
+  vertical: string;
+  variant: string | null;
+  furnishing: string | null;
+  carpetAreaSqft: number | null;
+}): string | null {
+  if (row.vertical !== "rentals") return row.variant;
+  const parts = [
+    row.furnishing ? row.furnishing.replace(/_/g, " ") : null,
+    row.carpetAreaSqft ? `${row.carpetAreaSqft} sqft` : null,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
 
 const STATUSES = [
   { value: "", label: "All" },
@@ -23,6 +44,7 @@ export default async function ListingsPage({
 }) {
   const sp = await searchParams;
   const result = await getAdminListings({
+    vertical: sp.vertical as never,
     search: sp.q,
     status: sp.status as never,
     source: sp.source,
@@ -40,9 +62,16 @@ export default async function ListingsPage({
         <input
           name="q"
           defaultValue={sp.q ?? ""}
-          placeholder="Search make, model, or URL…"
+          placeholder="Search make, model, locality, or URL…"
           className="field max-w-xs"
         />
+        <select name="vertical" defaultValue={sp.vertical ?? ""} className="field max-w-[9rem]">
+          {VERTICALS.map((v) => (
+            <option key={v.value} value={v.value}>
+              {v.label}
+            </option>
+          ))}
+        </select>
         <select name="status" defaultValue={sp.status ?? ""} className="field max-w-[10rem]">
           {STATUSES.map((s) => (
             <option key={s.value} value={s.value}>
@@ -52,7 +81,8 @@ export default async function ListingsPage({
         </select>
         <select name="source" defaultValue={sp.source ?? ""} className="field max-w-[10rem]">
           <option value="">All sources</option>
-          <option value="instagram">Instagram</option>
+          <option value="instagram">Instagram · cars</option>
+          <option value="instagram-rentals">Instagram · rentals</option>
           <option value="cars24">Cars24</option>
           <option value="cardekho">CarDekho</option>
         </select>
@@ -68,9 +98,9 @@ export default async function ListingsPage({
           <table className="w-full min-w-[52rem] text-xs">
             <thead className="bg-white/[0.02] text-ink-500">
               <tr className="text-left">
-                <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-wider">Car</th>
+                <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-wider">Listing</th>
                 <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-wider">Price</th>
-                <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-wider">Garage</th>
+                <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-wider">Source</th>
                 <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-wider">Status</th>
                 <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-wider">Listed</th>
                 <th className="px-3 py-2" />
@@ -84,20 +114,27 @@ export default async function ListingsPage({
                       href={`/listings/${row.id}`}
                       className="font-medium text-ink-100 hover:text-accent"
                     >
-                      {row.year} {row.make} {row.model}
+                      {listingTitle(row)}
                     </Link>
-                    {row.variant && (
-                      <span className="ml-1.5 text-ink-500">{row.variant}</span>
+                    {rowSubtitle(row) && (
+                      <span className="ml-1.5 text-ink-500">{rowSubtitle(row)}</span>
+                    )}
+                    {!sp.vertical && (
+                      <span className="ml-2 rounded border border-white/10 px-1 py-px font-mono text-[9px] uppercase tracking-wider text-ink-500">
+                        {row.vertical === "rentals" ? "rent" : "car"}
+                      </span>
                     )}
                   </td>
                   <td className="px-3 py-2 font-mono text-ink-200">
-                    {row.price ? `₹${Number(row.price).toLocaleString("en-IN")}` : "—"}
+                    {listingPrice(row)}
                   </td>
                   <td className="px-3 py-2 text-ink-400">{row.garageName ?? "—"}</td>
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-1">
                       {!row.isActive && <Badge tone="bad">delisted</Badge>}
-                      {row.saleStatus === "sold" && <Badge tone="warn">sold</Badge>}
+                      {row.saleStatus === "sold" && (
+                        <Badge tone="warn">{soldLabel(row.vertical)}</Badge>
+                      )}
                       {row.needsReview && <Badge tone="warn">review</Badge>}
                       {!row.isClusterHead && <Badge tone="info">dupe</Badge>}
                       {(row.media?.length ?? 0) === 0 && <Badge tone="bad">no photo</Badge>}

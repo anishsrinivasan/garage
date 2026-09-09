@@ -4,11 +4,21 @@ import type { Metadata } from "next";
 import { Clock, Home, MapPin } from "lucide-react";
 import { getRentals, getRentalFacets, type RentalFilters } from "@/app/lib/rentals-queries";
 import { RentalFilters as FiltersPanel } from "@/app/components/rental-filters";
-import { RentalCard, RentalCardSkeleton } from "@/app/components/rental-card";
-import { Pagination } from "@/app/components/pagination";
+import { RentalResults } from "@/app/components/rental-results";
 import { MobileFilterToggle } from "@/app/components/mobile-filter-toggle";
 
-export const revalidate = 300;
+/**
+ * Rendered per request, not ISR.
+ *
+ * Next classified this route dynamic because it reads searchParams, and
+ * `revalidate` only ever applied to the cached data underneath. vinext reads
+ * the same export as "prerender and revalidate every 300s", which for a
+ * filter-driven feed means one ISR key per filter combination — and on a cold
+ * key it serves the shell and fills the cache behind the request, so the first
+ * visitor to any new combination saw a page with no results. Being explicit
+ * makes both runtimes agree.
+ */
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Rentals in Chennai",
@@ -93,106 +103,15 @@ export default async function RentPage({
         </aside>
 
         <div className="min-w-0 flex-1">
-          <Suspense key={JSON.stringify(filters)} fallback={<Skeleton />}>
-            <Results filters={filters} search={sp.search} params={sp} />
-          </Suspense>
+          {/* Fetched in the browser through /api/rentals. */}
+          <RentalResults />
         </div>
       </div>
     </>
   );
 }
 
-async function Results({
-  filters,
-  search,
-  params,
-}: {
-  filters: RentalFilters;
-  search?: string;
-  params: Record<string, string | undefined>;
-}) {
-  const result = await getRentals(filters);
 
-  // Every current filter survives the toggle; only the toggle itself and the
-  // page cursor are dropped, since including taken flats renumbers the pages.
-  const cleanParams: Record<string, string> = {};
-  for (const [key, value] of Object.entries(params)) {
-    if (value && key !== "includeTaken" && key !== "page") cleanParams[key] = value;
-  }
-
-  return (
-    <>
-      <div className="mb-6">
-        <h2 className="font-display text-2xl font-bold tracking-tight text-ink-50">
-          {search
-            ? `Rentals matching "${search}"`
-            : filters.includeTaken
-              ? "All rentals, including taken"
-              : "Available now"}
-        </h2>
-        <p className="mt-1 text-sm text-ink-400">
-          {result.total.toLocaleString("en-IN")} home{result.total !== 1 ? "s" : ""} match your filters
-        </p>
-        {/* Taken flats are hidden, not deleted. Saying how many and offering
-            them is the difference between a filter and missing inventory. */}
-        {result.takenHidden > 0 && (
-          <Link
-            href={`?${new URLSearchParams({ ...cleanParams, includeTaken: "1" })}`}
-            className="mt-2 inline-flex items-center gap-1.5 text-xs text-ink-500 underline-offset-4 transition hover:text-ink-300 hover:underline"
-          >
-            {result.takenHidden} already taken — show {result.takenHidden === 1 ? "it" : "them"} too
-          </Link>
-        )}
-        {filters.includeTaken && (
-          <Link
-            href={`?${new URLSearchParams(cleanParams)}`}
-            className="mt-2 inline-flex items-center gap-1.5 text-xs text-ink-500 underline-offset-4 transition hover:text-ink-300 hover:underline"
-          >
-            Hide taken listings
-          </Link>
-        )}
-      </div>
-
-      {result.listings.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-white/10 bg-white/[0.02] py-20 text-center">
-          <p className="font-display text-lg font-semibold text-ink-200">
-            {result.total === 0 && !search
-              ? "No rentals indexed yet."
-              : "No homes match those filters."}
-          </p>
-          <p className="max-w-sm text-sm text-ink-500">
-            {result.total === 0 && !search
-              ? "Add Chennai broker accounts in the admin, then run a rentals scrape."
-              : "Try widening the budget, adding a bedroom count, or extending the “Listed” window."}
-          </p>
-        </div>
-      ) : (
-        <div className="grid animate-fade-in-up grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-          {result.listings.map((listing, i) => (
-            <RentalCard key={listing.id} listing={listing} priority={i < 3} />
-          ))}
-        </div>
-      )}
-
-      <Suspense>
-        <Pagination page={result.page} totalPages={result.totalPages} total={result.total} />
-      </Suspense>
-    </>
-  );
-}
-
-function Skeleton() {
-  return (
-    <>
-      <div className="mb-6 h-8 w-48 animate-pulse rounded bg-white/[0.05]" />
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <RentalCardSkeleton key={i} />
-        ))}
-      </div>
-    </>
-  );
-}
 
 function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (

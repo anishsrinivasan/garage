@@ -5,6 +5,10 @@
  * them in-process: a scrape drives a headless Chromium for minutes, which a
  * Next.js server action has no business doing, and routing everything through
  * one service keeps the "only one scrape at a time" mutex meaningful.
+ *
+ * Reading an Instagram profile goes the same way, for the same reason plus a
+ * harder one: this app is deployed to Cloudflare Workers, where Playwright
+ * cannot run at all.
  */
 
 const BASE_URL = process.env.CRON_SERVICE_URL;
@@ -87,4 +91,26 @@ export function getCronHealth() {
 
 export function getCronJobs() {
   return request<{ active: CronJob | null; history: CronJob[] }>("/jobs");
+}
+
+export type InstagramProfilePreview = {
+  handle: string;
+  displayName: string | null;
+  bio: string | null;
+  avatarUrl: string | null;
+  externalUrl: string | null;
+  followers: number | null;
+  isPrivate: boolean;
+  exists: boolean;
+};
+
+/** Reads an Instagram profile on the cron host, which has a browser. */
+export async function fetchProfileViaCron(
+  handle: string,
+): Promise<{ ok: true; profile: InstagramProfilePreview } | { ok: false; error: string }> {
+  const result = await request<{ profile: InstagramProfilePreview }>(
+    "/instagram/profile",
+    { method: "POST", body: JSON.stringify({ handle }) },
+  );
+  return result.ok ? { ok: true, profile: result.data.profile } : result;
 }
