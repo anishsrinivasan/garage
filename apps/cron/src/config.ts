@@ -19,6 +19,9 @@ export type CronConfig = {
   /** Web app endpoint to bust the listings cache after a run. */
   revalidateUrl: string | null;
   revalidateSecret: string | null;
+  /** Hard ceiling on a single job. See the note in jobs.ts. */
+  scrapeTimeoutMs: number;
+  maintenanceTimeoutMs: number;
 };
 
 function bool(value: string | undefined, fallback: boolean): boolean {
@@ -49,5 +52,9 @@ export function loadConfig(): CronConfig {
     runOnStart: bool(process.env.CRON_RUN_ON_START, false),
     revalidateUrl: process.env.WEB_REVALIDATE_URL ?? null,
     revalidateSecret: process.env.REVALIDATE_SECRET ?? null,
+    // Generous: a full six-source run with Instagram extraction has taken 90
+    // minutes. This is a deadlock detector, not a performance budget.
+    scrapeTimeoutMs: Number(process.env.CRON_SCRAPE_TIMEOUT_MS ?? 3 * 60 * 60 * 1000),
+    maintenanceTimeoutMs: Number(process.env.CRON_MAINTENANCE_TIMEOUT_MS ?? 15 * 60 * 1000),
   };
 }
