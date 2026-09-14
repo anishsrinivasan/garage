@@ -9,6 +9,16 @@
  *
  * ffmpeg is optional. When it isn't installed we log once and fall back to the
  * cover image, so a machine without it still scrapes — just with worse heroes.
+ *
+ * Some reels are filmed sideways. Not "landscape video in a portrait canvas",
+ * which ffmpeg handles: a 720x1280 portrait stream, no rotation metadata of any
+ * kind, whose *pixels* contain a scene lying on its side. A Land Rover listing
+ * had exactly this — correct aspect, correct dimensions, car and salesman both
+ * rotated ninety degrees. Nothing in the container says so, and no amount of
+ * probing finds it, because the file is not wrong; the filming was. Only
+ * something that understands the picture can tell, so `detectRotation` asks a
+ * vision model, and the answer is applied as a transpose while the frames are
+ * being cut rather than by re-encoding them afterwards.
  */
 
 import { spawn } from "node:child_process";
@@ -94,11 +104,69 @@ async function probeDurationSeconds(path: string): Promise<number | null> {
   return Number.isFinite(seconds) && seconds > 0 ? seconds : null;
 }
 
+/**
+ * How far the picture must turn to come out upright. Named for the correction,
+ * not the fault, so the value can be handed straight to ffmpeg without anyone
+ * having to reason about which way the error went.
+ */
+export type FrameRotation = "none" | "cw90" | "ccw90" | "180";
+
+/**
+ * ffmpeg's `transpose` does one quarter turn per invocation, so a half turn is
+ * two of them. Expressed as filter fragments rather than a filter string so the
+ * caller can drop them into a chain.
+ */
+const TRANSPOSE: Record<FrameRotation, string[]> = {
+  none: [],
+  cw90: ["transpose=1"],
+  ccw90: ["transpose=2"],
+  180: ["transpose=1", "transpose=1"],
+};
+
 export type ExtractedFrame = {
   buffer: Buffer;
   /** Seconds into the clip. */
   atSeconds: number;
 };
+
+/**
+ * One frame from the middle of the clip, uncorrected, for the rotation probe.
+ *
+ * Deliberately separate from `extractFrames`: the probe has to happen before we
+ * know the rotation, and re-using the extractor would mean cutting all five
+ * frames twice.
+ */
+export async function extractProbeFrame(videoBuffer: Buffer): Promise<Buffer | null> {
+  if (!(await isFfmpegAvailable())) return null;
+
+  const dir = await mkdtemp(join(tmpdir(), "classifieds-probe-"));
+  const videoPath = join(dir, "clip.mp4");
+  try {
+    await writeFile(videoPath, videoBuffer);
+    const duration = await probeDurationSeconds(videoPath);
+    if (duration == null) return null;
+
+    const out = join(dir, "probe.jpg");
+    const { code } = await run(
+      FFMPEG,
+      [
+        "-hide_banner", "-loglevel", "error",
+        "-ss", Math.max(duration * 0.5, 0.1).toFixed(2),
+        "-i", videoPath,
+        "-frames:v", "1",
+        // Small: orientation is legible at any size and this goes over the wire.
+        "-vf", "scale=360:-2",
+        "-q:v", "5",
+        "-y", out,
+      ],
+      20_000,
+    );
+    if (code !== 0) return null;
+    return await readFile(out).catch(() => null);
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
 
 /**
  * Writes the mp4 to a temp file, samples frames at `FRAME_POSITIONS`, and
@@ -107,6 +175,7 @@ export type ExtractedFrame = {
 export async function extractFrames(
   videoBuffer: Buffer,
   maxFrames = FRAME_POSITIONS.length,
+  rotation: FrameRotation = "none",
 ): Promise<ExtractedFrame[]> {
   if (!(await isFfmpegAvailable())) return [];
 
@@ -124,6 +193,7 @@ export async function extractFrames(
     const frames: ExtractedFrame[] = [];
     for (const [i, at] of positions.entries()) {
       const out = join(dir, `frame-${i}.jpg`);
+      const filters = TRANSPOSE[rotation];
       // -ss before -i seeks by keyframe, which is fast and accurate enough here.
       const { code } = await run(
         FFMPEG,
@@ -137,6 +207,7 @@ export async function extractFrames(
           videoPath,
           "-frames:v",
           "1",
+          ...(filters.length ? ["-vf", filters.join(",")] : []),
           "-q:v",
           "3",
           "-y",

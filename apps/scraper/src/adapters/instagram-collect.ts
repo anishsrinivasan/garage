@@ -27,6 +27,8 @@ import {
   isR2Enabled,
   uploadToR2,
   extractFrames,
+  extractProbeFrame,
+  detectRotation,
   leaseSessionOrFile,
   reportOutcome,
   isPooled,
@@ -283,7 +285,18 @@ async function fetchSinglePost(
         video.buffer,
         "video/mp4",
       );
-      const frames = await extractFrames(video.buffer);
+      // Ask which way up this was filmed before cutting the real frames, so the
+      // correction is baked in by ffmpeg rather than re-encoded afterwards —
+      // these are already uploaded by the time anything else looks at them.
+      const probe = await extractProbeFrame(video.buffer);
+      const rotation = probe
+        ? await detectRotation(probe, { postUrl })
+        : "none";
+      if (rotation !== "none") {
+        console.log(`[rotation] ${postUrl}: filmed sideways, correcting with ${rotation}`);
+      }
+
+      const frames = await extractFrames(video.buffer, undefined, rotation);
       for (const [i, frame] of frames.entries()) {
         const key = `instagram/${handle}/${postId}/frame-${i}.jpg`;
         const stored = await persist(key, frame.buffer, "image/jpeg");
