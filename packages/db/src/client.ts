@@ -2,11 +2,20 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres, { type Sql } from "postgres";
 import * as schema from "./schema";
 
-// Without PgBouncer we must aggressively cap client-side pool size. A Next.js
-// dev server + HMR, CLI scripts, and serverless invocations otherwise each
-// open their own 10-connection pool and quickly exhaust the server.
+// Without PgBouncer we must cap client-side pool size: a Next.js dev server +
+// HMR, CLI scripts and serverless invocations otherwise each open their own
+// pool and exhaust the server.
+//
+// Five was too few for the scraper, which drives six adapters, vision scoring
+// and upserts through this one client. postgres.js queues a query that cannot
+// get a connection and waits forever rather than failing, so an exhausted pool
+// presents as a hang with nothing in the logs — a rentals run once sat
+// seventeen minutes inside its first query against a perfectly healthy
+// database. Note a statement_timeout cannot be set here: PlanetScale's
+// transaction pooler rejects session startup parameters, the same way it
+// rejects search_path below.
 // Cache on globalThis so HMR reloads reuse the same pool.
-const MAX_CONNECTIONS = Number(process.env.DATABASE_POOL_MAX ?? 5);
+const MAX_CONNECTIONS = Number(process.env.DATABASE_POOL_MAX ?? 10);
 const IDLE_TIMEOUT = Number(process.env.DATABASE_IDLE_TIMEOUT ?? 20); // seconds
 const CONNECT_TIMEOUT = Number(process.env.DATABASE_CONNECT_TIMEOUT ?? 10);
 

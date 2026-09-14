@@ -65,6 +65,41 @@ function computeContentHash(listing: NormalizedListing): string {
   return createHash("sha256").update(key).digest("hex");
 }
 
+/**
+ * Ceiling on a single source, so one stuck adapter costs one source.
+ *
+ * The job-level watchdog in the cron already stops a hung run from wedging the
+ * schedule, but at six hours it is far too blunt to be the only guard: an
+ * instagram-rentals run once sat for seventeen minutes without reaching its
+ * first log line — hung on a database query before the browser even launched,
+ * while five other sources waited behind it that would have finished fine.
+ *
+ * Overridable because the right value is workload-dependent: Instagram with
+ * fifteen handles and vision scoring legitimately runs past an hour, while OLX
+ * is done in three minutes.
+ */
+const SOURCE_TIMEOUT_MS = Number(process.env.SCRAPE_SOURCE_TIMEOUT_MS ?? 90 * 60 * 1000);
+
+async function withSourceDeadline<T>(name: string, work: () => Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () =>
+        reject(
+          new Error(
+            `${name} produced nothing for ${Math.round(SOURCE_TIMEOUT_MS / 60000)}m and was abandoned`,
+          ),
+        ),
+      SOURCE_TIMEOUT_MS,
+    );
+  });
+  try {
+    return await Promise.race([work(), deadline]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 async function upsertListings(
   incoming: NormalizedListing[],
 ): Promise<{ newCount: number; updatedCount: number; ids: string[] }> {
@@ -269,7 +304,7 @@ export async function runAdapter(
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const result = await adapter.scrape();
+      const result = await withSourceDeadline(adapter.name, () => adapter.scrape());
 
       console.log(
         `[runner] ${adapter.name}: found ${result.listings.length} listings, ${result.errors.length} errors`
@@ -301,6 +336,17 @@ export async function runAdapter(
 
       const { newCount, updatedCount, ids: upsertedIds } =
         await upsertListings(validListings);
+
+      // Only now is it safe to say these posts have been dealt with.
+      if (result.commit) {
+        await result.commit().catch((err: unknown) =>
+          console.warn(
+            `[runner] ${adapter.name}: commit hook failed — posts will be re-read next run: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          ),
+        );
+      }
 
       // Instagram records per-handle status inside its own adapter, since one
       // run covers many dealers. Marketplaces have a single aggregator source,

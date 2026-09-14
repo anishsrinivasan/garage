@@ -93,6 +93,20 @@ export type ScrapeResult = {
   listings: NormalizedListing[];
   errors: ScrapeError[];
   metadata: { pagesScraped: number; totalFound: number; durationMs: number };
+  /**
+   * Bookkeeping the adapter wants done only once its listings are durable.
+   *
+   * Instagram keeps a ledger of post URLs it has already looked at and skips
+   * them for 48 hours. That ledger used to be written per handle, in the middle
+   * of a run whose listings are not persisted until the adapter returns — so an
+   * interrupted run recorded the posts and lost the listings, and the next run
+   * dutifully skipped them. A day's inventory disappeared exactly that way.
+   *
+   * The runner calls this after upserting, so the ledger can never be ahead of
+   * the data it describes. A failure here is logged and swallowed: re-reading a
+   * post is cheap, losing it is not.
+   */
+  commit?: () => Promise<void>;
 };
 
 export type ScrapeError = {

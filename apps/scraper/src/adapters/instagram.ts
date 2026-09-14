@@ -175,6 +175,8 @@ export function createInstagramAdapter(dealers: DealerInfo[]): ScraperAdapter {
       const startTime = Date.now();
       const listings: NormalizedListing[] = [];
       const errors: ScrapeError[] = [];
+      /** Written only once the runner has the listings safely stored. */
+      const pendingLedger: Parameters<typeof recordScrapedPosts>[0] = [];
       let totalFound = 0;
 
       const collected = await collectPosts(dealers, {
@@ -219,17 +221,16 @@ export function createInstagramAdapter(dealers: DealerInfo[]): ScraperAdapter {
           }
         }
 
-        // Remember what was looked at, so the next run can skip it.
-        await recordScrapedPosts(
-          posts.map((post, i) => ({
+        // Held until the runner has persisted the listings. Writing it here
+        // meant an interrupted run marked these posts as seen while their
+        // listings were still only in memory, and the next run skipped them for
+        // the full 48-hour recheck window — the work was simply gone.
+        pendingLedger.push(
+          ...posts.map((post, i) => ({
             postUrl: post.postUrl,
             handle,
             isCarListing: Boolean(results[i]?.isCarListing),
           })),
-        ).catch((err: unknown) =>
-          console.warn(
-            `[instagram] @${handle}: failed to record scraped_posts: ${err instanceof Error ? err.message : String(err)}`,
-          ),
         );
 
         console.log(`[instagram] @${handle}: ${kept}/${posts.length} kept as listings`);
@@ -238,6 +239,12 @@ export function createInstagramAdapter(dealers: DealerInfo[]): ScraperAdapter {
       return {
         listings,
         errors,
+        commit: async () => {
+          await recordScrapedPosts(pendingLedger);
+          console.log(
+            `[instagram] recorded ${pendingLedger.length} post(s) as seen`,
+          );
+        },
         metadata: {
           pagesScraped: dealers.length,
           totalFound,
