@@ -52,9 +52,14 @@ export function loadConfig(): CronConfig {
     runOnStart: bool(process.env.CRON_RUN_ON_START, false),
     revalidateUrl: process.env.WEB_REVALIDATE_URL ?? null,
     revalidateSecret: process.env.REVALIDATE_SECRET ?? null,
-    // Generous: a full six-source run with Instagram extraction has taken 90
-    // minutes. This is a deadlock detector, not a performance budget.
-    scrapeTimeoutMs: Number(process.env.CRON_SCRAPE_TIMEOUT_MS ?? 3 * 60 * 60 * 1000),
+    // Six hours. Three was wrong: it came from timing single-source runs by
+    // hand, and a real six-source run is far longer. Fifteen Instagram handles
+    // at roughly two minutes of fetching and six of vision scoring each is
+    // already past two hours before the marketplaces are touched — a live run
+    // was still on its fourth rental broker at the three-hour mark. This is a
+    // deadlock detector, so it needs to sit well clear of a healthy run; a
+    // scrape that genuinely takes six hours is broken by any measure.
+    scrapeTimeoutMs: Number(process.env.CRON_SCRAPE_TIMEOUT_MS ?? 6 * 60 * 60 * 1000),
     maintenanceTimeoutMs: Number(process.env.CRON_MAINTENANCE_TIMEOUT_MS ?? 15 * 60 * 1000),
   };
 }
