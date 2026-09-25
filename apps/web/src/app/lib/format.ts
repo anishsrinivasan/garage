@@ -95,3 +95,14 @@ export function imageAlt(listing: {
     .filter(Boolean)
     .join(" ");
 }
+
+/**
+ * A card's spec line: only the facts we actually have, dot-separated.
+ *
+ * Zillow, Airbnb and Turo all set specs as one line and simply omit what is
+ * unknown. Ours were a three-cell icon grid that printed "—" per missing value,
+ * and on scraped rentals most values are missing, so cards read "— — —".
+ */
+export function specLine(values: Array<string | null | undefined>): string {
+  return values.filter((v) => v && v !== "—").join(" · ");
+}

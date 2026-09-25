@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Fuel, Gauge, Settings2, MapPin, ImageOff, Play, Images } from "lucide-react";
-import { formatPrice, formatKm, enumLabel, imageAlt } from "@/app/lib/format";
+import { MapPin, ImageOff, Play, Images } from "lucide-react";
+import { formatPrice, formatKm, enumLabel, imageAlt, specLine } from "@/app/lib/format";
 import { pickHeroImage, hasVideo, imageCount, type MediaItem } from "@/app/lib/media";
 import { SourceBadge } from "./source-badge";
 import { BookmarkButton } from "./bookmark-button";
@@ -159,9 +159,16 @@ export function ListingCard({
       </div>
 
       <div className="relative p-4">
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <p className="truncate text-xs text-ink-400">
-            {listing.variant ?? "—"}
+        {listing.variant && (
+          <p className="mb-1 truncate text-xs text-ink-400">{listing.variant}</p>
+        )}
+        <div className="flex items-center justify-between gap-2">
+          <p className="truncate text-xs text-ink-300">
+            {specLine([
+              formatKm(listing.kmDriven),
+              enumLabel(listing.fuelType),
+              enumLabel(listing.transmission),
+            ]) || "Details on the listing"}
           </p>
           <div className="flex shrink-0 items-center gap-1.5 text-ink-500">
             {photos > 1 && (
@@ -177,12 +184,6 @@ export function ListingCard({
               </span>
             )}
           </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-2 border-t border-white/5 pt-3">
-          <Spec icon={Gauge} value={formatKm(listing.kmDriven)} />
-          <Spec icon={Fuel} value={enumLabel(listing.fuelType)} />
-          <Spec icon={Settings2} value={enumLabel(listing.transmission)} />
         </div>
 
         <div className="mt-3 flex items-center justify-between gap-2 text-[11px] text-ink-500">
@@ -203,21 +204,6 @@ export function ListingCard({
   );
 }
 
-function Spec({
-  icon: Icon,
-  value,
-}: {
-  icon: typeof Gauge;
-  value: string;
-}) {
-  return (
-    <div className="flex items-center gap-1.5 text-[11px] text-ink-300">
-      <Icon className="h-3.5 w-3.5 shrink-0 text-ink-500" strokeWidth={1.75} />
-      <span className="truncate font-medium">{value}</span>
-    </div>
-  );
-}
-
 /** Grid placeholder shown while the results stream in. */
 export function ListingCardSkeleton() {
   return (
@@ -225,11 +211,7 @@ export function ListingCardSkeleton() {
       <div className="aspect-[3/2] animate-pulse bg-white/[0.04]" />
       <div className="space-y-3 p-4">
         <div className="h-3 w-2/3 animate-pulse rounded bg-white/[0.05]" />
-        <div className="grid grid-cols-3 gap-2 border-t border-white/5 pt-3">
-          <div className="h-3 animate-pulse rounded bg-white/[0.04]" />
-          <div className="h-3 animate-pulse rounded bg-white/[0.04]" />
-          <div className="h-3 animate-pulse rounded bg-white/[0.04]" />
-        </div>
+        <div className="h-3 w-1/2 animate-pulse rounded bg-white/[0.04]" />
         <div className="h-3 w-1/3 animate-pulse rounded bg-white/[0.04]" />
       </div>
     </div>

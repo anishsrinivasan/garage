@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { BedDouble, ImageOff, MapPin, Maximize2, Sofa, Wallet } from "lucide-react";
+import { ImageOff, MapPin } from "lucide-react";
+import { specLine } from "@/app/lib/format";
 import { pickHeroImage, imageCount, type MediaItem } from "@/app/lib/media";
 import {
   bhkLabel,
@@ -121,9 +122,11 @@ export function RentalCard({
 
         <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-300/80">
-              {rentalLabel(listing.propertyType)}
-            </p>
+            {listing.propertyType && (
+              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-300/80">
+                {rentalLabel(listing.propertyType)}
+              </p>
+            )}
             <h3 className="truncate font-display text-[15px] font-bold leading-tight text-ink-50">
               {bhkLabel(listing)} · {where}
             </h3>
@@ -144,22 +147,20 @@ export function RentalCard({
       </div>
 
       <div className="relative p-4">
-        <div className="mb-3 flex items-center justify-between gap-2 text-xs text-ink-400">
-          <span className="truncate">{rentalLabel(listing.furnishing)}</span>
+        <div className="flex items-center justify-between gap-2">
+          <p className="truncate text-xs text-ink-300">
+            {specLine([
+              listing.carpetAreaSqft
+                ? `${listing.carpetAreaSqft.toLocaleString("en-IN")} sqft`
+                : null,
+              rentalLabel(listing.furnishing),
+              // Deposit in months where possible — that is how tenants compare it.
+              months ? `${months} deposit` : deposit ? `₹${deposit} deposit` : null,
+            ]) || "Details on the listing"}
+          </p>
           {photos > 1 && (
             <span className="shrink-0 font-mono text-[10px] text-ink-500">{photos} photos</span>
           )}
-        </div>
-
-        <div className="grid grid-cols-3 gap-2 border-t border-white/5 pt-3">
-          <Spec icon={BedDouble} value={bhkLabel(listing)} />
-          <Spec
-            icon={Maximize2}
-            value={listing.carpetAreaSqft ? `${listing.carpetAreaSqft} sqft` : "—"}
-          />
-          {/* Deposit shown in months where possible — that is how tenants
-              actually compare it, and the absolute figure is on the detail page. */}
-          <Spec icon={Wallet} value={months ?? (deposit ? `₹${deposit}` : "—")} />
         </div>
 
         <div className="mt-3 flex items-center justify-between gap-2 text-[11px] text-ink-500">
@@ -176,26 +177,13 @@ export function RentalCard({
   );
 }
 
-function Spec({ icon: Icon, value }: { icon: typeof Sofa; value: string }) {
-  return (
-    <div className="flex items-center gap-1.5 text-[11px] text-ink-300">
-      <Icon className="h-3.5 w-3.5 shrink-0 text-ink-500" strokeWidth={1.75} />
-      <span className="truncate font-medium">{value}</span>
-    </div>
-  );
-}
-
 export function RentalCardSkeleton() {
   return (
     <div className="overflow-hidden rounded-2xl border border-white/[0.06] bg-ink-850/40">
       <div className="aspect-[3/2] animate-pulse bg-white/[0.04]" />
       <div className="space-y-3 p-4">
         <div className="h-3 w-2/3 animate-pulse rounded bg-white/[0.05]" />
-        <div className="grid grid-cols-3 gap-2 border-t border-white/5 pt-3">
-          <div className="h-3 animate-pulse rounded bg-white/[0.04]" />
-          <div className="h-3 animate-pulse rounded bg-white/[0.04]" />
-          <div className="h-3 animate-pulse rounded bg-white/[0.04]" />
-        </div>
+        <div className="h-3 w-1/2 animate-pulse rounded bg-white/[0.04]" />
       </div>
     </div>
   );

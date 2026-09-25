@@ -14,8 +14,11 @@ function getSnapshot(): string[] {
   }
 }
 
+// One shared array: useSyncExternalStore compares snapshots by identity, and a
+// fresh [] per call makes React warn of an infinite loop on every render.
+const EMPTY: string[] = [];
 function getServerSnapshot(): string[] {
-  return [];
+  return EMPTY;
 }
 
 let cachedIds: string[] = getSnapshot();
